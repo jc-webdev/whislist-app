@@ -1553,3 +1553,11 @@ begin
 exception
   when duplicate_object then null;
 end $$;
+
+-- Relikt oryginalnego prototypu (Lovable): domyślne miasto 'Warszawa' na
+-- profilach, w parze z fałszywą datą urodzenia "12 marca 1994" z mock-data.ts
+-- (patrz CLAUDE.md). Klient i tak zawsze jawnie wysyła null, gdy użytkownik
+-- nie poda miasta (insert profilu w loadSession), więc ten default nigdy nie
+-- powinien się uruchomić przez normalny przepływ aplikacji — usunięty dla
+-- czystości i żeby nikt przypadkiem nie dodał kiedyś insertu bez tej kolumny.
+alter table public.profiles alter column city drop default;
