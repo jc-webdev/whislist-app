@@ -360,7 +360,7 @@ function parseRoute(pathname: string): ParsedRoute {
     return { screen: "ideas" };
 }
 
-const PENDING_INVITE_KEY = "widoczek_pending_invite";
+const PENDING_INVITE_KEY = "whishapp_pending_invite";
 
 type InvitePreview = {
     owner_id: string;
@@ -4767,7 +4767,7 @@ function AddFriendScreen({
         : [];
 
     const inviteUrl = inviteCode && typeof window !== "undefined" ? `${window.location.origin}/invite/${inviteCode}` : "";
-    const shareMessage = "Dołącz do moich ludzi na Widoczku i zobacz, co chciałbym dostać 🎁";
+    const shareMessage = "Dołącz do moich ludzi na WhishApp i zobacz, co chciałbym dostać 🎁";
     const canShare = typeof navigator !== "undefined" && "share" in navigator;
 
     const handleSend = (id: string) => {
