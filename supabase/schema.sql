@@ -172,19 +172,15 @@ create table if not exists public.notifications (
 );
 
 -- related_user_id niesie "kto" dla powiadomień o znajomych (np. kto wysłał
--- zaproszenie) — idea_id nie ma tu zastosowania. Check constraint na "type"
--- jest deklarowany raz w create table, więc rozszerzamy go osobno (drop +
--- add), żeby nowe typy działały też na już istniejących instalacjach.
+-- zaproszenie) — idea_id nie ma tu zastosowania.
 alter table public.notifications add column if not exists related_user_id uuid references public.profiles(id) on delete set null;
 
-alter table public.notifications drop constraint if exists notifications_type_check;
-alter table public.notifications add constraint notifications_type_check
-  check (type in (
-    'gift_received_reserved',
-    'gift_received_purchased_confirmed',
-    'friend_request_received',
-    'friend_request_accepted'
-  ));
+-- Pełna, docelowa lista dozwolonych typów jest zdefiniowana raz, na dole
+-- pliku (patrz ostatnie "alter table ... add constraint
+-- notifications_type_check") — była tu wcześniej osobna, węższa definicja,
+-- która na żywej bazie z realnymi wierszami nowszych typów (poll_created,
+-- gift_plan_invite, ...) powodowała błąd "check constraint is violated by
+-- some row" przy każdym ponownym wklejeniu całego pliku od góry.
 
 create index if not exists idx_profiles_email on public.profiles(email);
 create index if not exists idx_friendships_user_id on public.friendships(user_id);
@@ -1453,6 +1449,107 @@ create trigger trg_notify_poll_created
 do $$
 begin
   alter publication supabase_realtime add table public.poll_votes;
+exception
+  when duplicate_object then null;
+end $$;
+
+-- ==================================================
+-- Powiadomienia z bezpośrednim odnośnikiem (gift_plan_invite -> plan,
+-- poll_created -> ankieta) + uzupełnienie realtime, którego brakowało po
+-- stronie klienta dla idea_suggestions/gift_plan_participants/poll_votes.
+-- Bez tego kliknięcie w powiadomienie "zaproszono Cię do wspólnego prezentu"
+-- albo "ktoś stworzył ankietę" nie miało dokąd nawigować, a dane (sugestia,
+-- plan, głosy) potrafiły być niewidoczne w kliencie do czasu odświeżenia
+-- sesji — loadSession ładuje je tylko raz, patrz CLAUDE.md.
+-- ==================================================
+
+alter table public.notifications add column if not exists gift_plan_id uuid references public.gift_plans(id) on delete set null;
+alter table public.notifications add column if not exists poll_id uuid references public.polls(id) on delete set null;
+
+create or replace function public.invite_to_gift_plan(p_plan_id uuid, p_user_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_idea_id uuid;
+  v_idea_owner uuid;
+begin
+  if not public.is_gift_plan_participant(p_plan_id, auth.uid()) then
+    raise exception 'NOT_A_PARTICIPANT';
+  end if;
+
+  select gp.idea_id, i.user_id into v_idea_id, v_idea_owner
+  from gift_plans gp
+  join gift_ideas i on i.id = gp.idea_id
+  where gp.id = p_plan_id;
+
+  if v_idea_owner = p_user_id then
+    raise exception 'CANNOT_INVITE_IDEA_OWNER';
+  end if;
+  if not public.is_friend_of(auth.uid(), p_user_id) then
+    raise exception 'NOT_A_FRIEND';
+  end if;
+
+  insert into gift_plan_participants (gift_plan_id, user_id, status)
+  values (p_plan_id, p_user_id, 'invited')
+  on conflict (gift_plan_id, user_id) do nothing;
+
+  insert into notifications (recipient_id, type, related_user_id, idea_id, gift_plan_id)
+  values (p_user_id, 'gift_plan_invite', auth.uid(), v_idea_id, p_plan_id);
+end;
+$$;
+
+revoke all on function public.invite_to_gift_plan(uuid, uuid) from public;
+grant execute on function public.invite_to_gift_plan(uuid, uuid) to authenticated;
+
+create or replace function public.notify_poll_created()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_recipient uuid;
+begin
+  for v_recipient in
+    select f.friend_id from friendships f where f.user_id = new.target_id
+    union
+    select f.user_id from friendships f where f.friend_id = new.target_id
+  loop
+    if v_recipient = new.target_id or v_recipient = new.created_by then
+      continue;
+    end if;
+    if new.group_id is not null and not exists (
+      select 1 from group_members gm where gm.group_id = new.group_id and gm.user_id = v_recipient
+    ) then
+      continue;
+    end if;
+    insert into notifications (recipient_id, type, related_user_id, poll_id)
+    values (v_recipient, 'poll_created', new.created_by, new.id);
+  end loop;
+  return new;
+end;
+$$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.gift_plans;
+exception
+  when duplicate_object then null;
+end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.polls;
+exception
+  when duplicate_object then null;
+end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.poll_options;
 exception
   when duplicate_object then null;
 end $$;

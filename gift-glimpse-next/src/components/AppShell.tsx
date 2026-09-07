@@ -65,6 +65,8 @@ type NotificationRow = {
     type: NotificationKind;
     idea_id: string | null;
     related_user_id: string | null;
+    gift_plan_id: string | null;
+    poll_id: string | null;
     read: boolean;
     created_at: string;
 };
@@ -475,7 +477,7 @@ function InviteMessageScreen({
     return (
         <div className="app-shell auth-shell">
             <div className="card body-card auth-card">
-                <div className="eyebrow">Widoczek</div>
+                <div className="eyebrow">WhishApp</div>
                 <h1>{title}</h1>
                 <p>{text}</p>
                 {action ? (
@@ -567,7 +569,7 @@ function InviteScreen({
         <div className="app-shell auth-shell">
             <div className="card body-card auth-card" style={{ textAlign: "center" }}>
                 <Avatar id={preview.owner_id} name={preview.owner_name} avatarUrl={preview.owner_avatar_url} size="large" />
-                <div className="eyebrow" style={{ marginTop: "12px" }}>Widoczek</div>
+                <div className="eyebrow" style={{ marginTop: "12px" }}>WhishApp</div>
                 <h1>{firstName} zaprasza Cię do swoich ludzi 🎁</h1>
                 <p>Zobacz, co naprawdę chciałby dostać — bez zgadywania.</p>
                 {isAuthenticated ? (
@@ -596,7 +598,7 @@ function InviteScreen({
 function LandingScreen({ onRegister, onLogin }: { onRegister: () => void; onLogin: () => void }) {
     return (
         <div className="landing-screen">
-            <div className="landing-wordmark">Widoczek</div>
+            <div className="landing-wordmark">WhishApp</div>
 
             <div className="landing-hero">
                 <h1>Powiedz swoim ludziom, co Ci się podoba</h1>
@@ -683,7 +685,7 @@ function OnboardingScreen({
         <div className="app-shell">
             <div className="onboarding-screen">
                 <div className="brand-row">
-                    <div className="brand">Widoczek</div>
+                    <div className="brand">WhishApp</div>
                     <button className="text-button" onClick={onFinish}>Pomiń</button>
                 </div>
 
@@ -920,7 +922,7 @@ export function AppShell() {
                     supabase.from("idea_visibility").select("*"),
                     supabase
                         .from("notifications")
-                        .select("id, type, idea_id, related_user_id, read, created_at")
+                        .select("id, type, idea_id, related_user_id, gift_plan_id, poll_id, read, created_at")
                         .order("created_at", { ascending: false })
                         .limit(50),
                     supabase.from("idea_suggestions").select("*").order("created_at", { ascending: false }),
@@ -1561,6 +1563,100 @@ export function AppShell() {
                 (payload) => {
                     const deletedId = (payload.old as { id?: string }).id;
                     if (deletedId) setLiveFriendRequests((prev) => prev.filter((row) => row.id !== deletedId));
+                }
+            )
+            // "Podrzuć pomysł" — bez tego nowa sugestia trafiała do notifications
+            // (ma tam realtime), ale sam wiersz w idea_suggestions czekał na
+            // odświeżenie sesji, więc zakładka "Sugestie" wyglądała na pustą.
+            .on(
+                "postgres_changes",
+                { event: "INSERT", schema: "public", table: "idea_suggestions" },
+                (payload) => {
+                    setLiveIdeaSuggestions((prev) => [payload.new as IdeaSuggestionRow, ...prev]);
+                }
+            )
+            .on(
+                "postgres_changes",
+                { event: "UPDATE", schema: "public", table: "idea_suggestions" },
+                (payload) => {
+                    const updated = payload.new as IdeaSuggestionRow;
+                    setLiveIdeaSuggestions((prev) => prev.map((row) => (row.id === updated.id ? updated : row)));
+                }
+            )
+            // Zaproszenie do "Wspólnego prezentu": wiersz w gift_plan_participants
+            // to jedyny moment, w którym zaproszony w ogóle staje się uprawniony do
+            // zobaczenia planu (RLS), więc samo dodanie tabeli do publikacji nie
+            // wystarczy — plan i pomysł trzeba dociągnąć osobnym zapytaniem,
+            // bo ich insert zdarzył się, zanim zaproszony miał do nich dostęp.
+            .on(
+                "postgres_changes",
+                { event: "INSERT", schema: "public", table: "gift_plan_participants" },
+                (payload) => {
+                    const participant = payload.new as GiftPlanParticipantRow;
+                    setLiveGiftPlanParticipants((prev) =>
+                        prev.some((row) => row.gift_plan_id === participant.gift_plan_id && row.user_id === participant.user_id)
+                            ? prev
+                            : [...prev, participant]
+                    );
+                    void (async () => {
+                        const { data: plan } = await supabase.from("gift_plans").select("*").eq("id", participant.gift_plan_id).single();
+                        if (!plan) return;
+                        setLiveGiftPlans((prev) => (prev.some((row) => row.id === plan.id) ? prev : [...prev, plan as GiftPlanRow]));
+                        const { data: idea } = await supabase.from("gift_ideas").select("*").eq("id", plan.idea_id).single();
+                        if (idea) setLiveIdeas((prev) => (prev.some((row) => row.id === idea.id) ? prev : [...prev, idea as GiftIdeaRow]));
+                    })();
+                }
+            )
+            .on(
+                "postgres_changes",
+                { event: "UPDATE", schema: "public", table: "gift_plan_participants" },
+                (payload) => {
+                    const updated = payload.new as GiftPlanParticipantRow;
+                    setLiveGiftPlanParticipants((prev) =>
+                        prev.map((row) =>
+                            row.gift_plan_id === updated.gift_plan_id && row.user_id === updated.user_id ? updated : row
+                        )
+                    );
+                }
+            )
+            // Ankiety: znajomi targetu kwalifikują się do zobaczenia ankiety już w
+            // momencie jej stworzenia (RLS zależy tylko od istniejącej znajomości),
+            // więc w przeciwieństwie do wspólnych prezentów zwykła subskrypcja
+            // insertu wystarcza — bez dodatkowego dociągania.
+            .on(
+                "postgres_changes",
+                { event: "INSERT", schema: "public", table: "polls" },
+                (payload) => {
+                    const poll = payload.new as PollRow;
+                    setLivePolls((prev) => (prev.some((row) => row.id === poll.id) ? prev : [...prev, poll]));
+                }
+            )
+            .on(
+                "postgres_changes",
+                { event: "INSERT", schema: "public", table: "poll_options" },
+                (payload) => {
+                    const option = payload.new as PollOptionRow;
+                    setLivePollOptions((prev) => (prev.some((row) => row.id === option.id) ? prev : [...prev, option]));
+                }
+            )
+            .on(
+                "postgres_changes",
+                { event: "INSERT", schema: "public", table: "poll_votes" },
+                (payload) => {
+                    const vote = payload.new as PollVoteRow;
+                    setLivePollVotes((prev) =>
+                        prev.some((row) => row.poll_id === vote.poll_id && row.user_id === vote.user_id) ? prev : [...prev, vote]
+                    );
+                }
+            )
+            .on(
+                "postgres_changes",
+                { event: "UPDATE", schema: "public", table: "poll_votes" },
+                (payload) => {
+                    const updated = payload.new as PollVoteRow;
+                    setLivePollVotes((prev) =>
+                        prev.map((row) => (row.poll_id === updated.poll_id && row.user_id === updated.user_id ? updated : row))
+                    );
                 }
             )
             .subscribe();
@@ -2374,7 +2470,7 @@ export function AppShell() {
         return (
             <div className="app-shell auth-shell">
                 <div className="card body-card auth-card">
-                    <div className="eyebrow">Widoczek</div>
+                    <div className="eyebrow">WhishApp</div>
                     <h1>Ustaw nowe hasło</h1>
                     <div className="field-group">
                         <label>Nowe hasło</label>
@@ -2427,7 +2523,7 @@ export function AppShell() {
             return (
                 <div className="app-shell auth-shell">
                     <div className="card body-card auth-card">
-                        <div className="eyebrow">Widoczek</div>
+                        <div className="eyebrow">WhishApp</div>
                         <h1>Załóż konto</h1>
                         <div className="field-group">
                             <label>Imię i nazwisko</label>
@@ -2478,7 +2574,7 @@ export function AppShell() {
             return (
                 <div className="app-shell auth-shell">
                     <div className="card body-card auth-card">
-                        <div className="eyebrow">Widoczek</div>
+                        <div className="eyebrow">WhishApp</div>
                         <h1>Reset hasła</h1>
                         <div className="field-group">
                             <label>Email</label>
@@ -2511,7 +2607,7 @@ export function AppShell() {
             <div className="app-shell auth-shell">
                 <div className="card body-card auth-card">
                     <button className="text-button" onClick={() => setAuthView("landing")} style={{ alignSelf: "flex-start" }}>
-                        ← Widoczek
+                        ← WhishApp
                     </button>
                     <h1>Zaloguj się</h1>
                     <div className="field-group">
@@ -2683,12 +2779,28 @@ export function AppShell() {
                                         <div className="eyebrow">Prezenty</div>
                                         <h1>Organizacja i okazje</h1>
                                     </div>
+                                    <div className="topbar-actions">
+                                        <button className="bell-button" onClick={goToNotifications} aria-label="Powiadomienia">
+                                            <IconBell />
+                                            {unreadNotificationsCount > 0 ? (
+                                                <span className="bell-badge">{unreadNotificationsCount}</span>
+                                            ) : null}
+                                        </button>
+                                    </div>
                                 </>
                             ) : screen === "profile" ? (
                                 <>
                                     <div>
                                         <div className="eyebrow">Twój profil</div>
                                         <h1>{effectiveMe.name}</h1>
+                                    </div>
+                                    <div className="topbar-actions">
+                                        <button className="bell-button" onClick={goToNotifications} aria-label="Powiadomienia">
+                                            <IconBell />
+                                            {unreadNotificationsCount > 0 ? (
+                                                <span className="bell-badge">{unreadNotificationsCount}</span>
+                                            ) : null}
+                                        </button>
                                     </div>
                                 </>
                             ) : screen === "edit-profile" ? (
@@ -2906,6 +3018,10 @@ export function AppShell() {
                                 outgoingSuggestions={outgoingSuggestions}
                                 onAcceptSuggestion={(suggestion) => void respondToSuggestion(suggestion, true)}
                                 onDismissSuggestion={(suggestion) => void respondToSuggestion(suggestion, false)}
+                                onOpenIdea={goToIdeaDetail}
+                                onOpenPerson={goToPersonProfile}
+                                onOpenGiftPlan={goToGiftPlan}
+                                onOpenPoll={goToPoll}
                             />
                         ) : null}
 
@@ -2922,6 +3038,7 @@ export function AppShell() {
                                 plans={myGiftPlans}
                                 onSelectPlan={goToGiftPlan}
                                 onRespond={(planId, accept) => void respondToGiftPlanInvite(planId, accept)}
+                                namesById={Object.fromEntries(liveProfiles.map((row) => [row.id, row.full_name]))}
                             />
                         ) : null}
 
@@ -3678,6 +3795,10 @@ function NotificationsScreen({
     outgoingSuggestions,
     onAcceptSuggestion,
     onDismissSuggestion,
+    onOpenIdea,
+    onOpenPerson,
+    onOpenGiftPlan,
+    onOpenPoll,
 }: {
     notifications: Array<NotificationRow>;
     ideasById: Record<string, string>;
@@ -3693,6 +3814,10 @@ function NotificationsScreen({
     outgoingSuggestions: Array<IdeaSuggestionRow & { recipientName: string }>;
     onAcceptSuggestion: (suggestion: IdeaSuggestionRow) => void;
     onDismissSuggestion: (suggestion: IdeaSuggestionRow) => void;
+    onOpenIdea: (ideaId: string) => void;
+    onOpenPerson: (personId: string) => void;
+    onOpenGiftPlan: (planId: string) => void;
+    onOpenPoll: (pollId: string) => void;
 }) {
     const textFor = (notification: NotificationRow) => {
         const ideaTitle = notification.idea_id ? ideasById[notification.idea_id] : undefined;
@@ -3714,6 +3839,29 @@ function NotificationsScreen({
                 return `📊 ${personName ?? "Ktoś"} stworzył(a) nową ankietę o pomysłach na prezent.`;
             default:
                 return "Nowe powiadomienie.";
+        }
+    };
+
+    // Każdy typ powiadomienia prowadzi tam, gdzie faktycznie żyje jego treść —
+    // dla zaproszeń/sugestii to przełączenie zakładki w tym samym ekranie,
+    // dla reszty nawigacja do konkretnego pomysłu/planu/ankiety/osoby.
+    const onOpenFor = (notification: NotificationRow): (() => void) | null => {
+        switch (notification.type) {
+            case "gift_received_purchased_confirmed":
+            case "gift_received_reserved":
+                return notification.idea_id ? () => onOpenIdea(notification.idea_id!) : null;
+            case "friend_request_received":
+                return () => onTabChange("zaproszenia");
+            case "friend_request_accepted":
+                return notification.related_user_id ? () => onOpenPerson(notification.related_user_id!) : null;
+            case "idea_suggestion_received":
+                return () => onTabChange("sugestie");
+            case "gift_plan_invite":
+                return notification.gift_plan_id ? () => onOpenGiftPlan(notification.gift_plan_id!) : null;
+            case "poll_created":
+                return notification.poll_id ? () => onOpenPoll(notification.poll_id!) : null;
+            default:
+                return null;
         }
     };
 
@@ -3784,12 +3932,21 @@ function NotificationsScreen({
                         <p className="muted">Nie masz jeszcze żadnych powiadomień.</p>
                     </div>
                 ) : (
-                    notifications.map((notification) => (
-                        <div className={notification.read ? "card body-card" : "card body-card info-callout"} key={notification.id}>
-                            <p>{textFor(notification)}</p>
-                            <div className="muted small">{new Date(notification.created_at).toLocaleDateString("pl-PL")}</div>
-                        </div>
-                    ))
+                    notifications.map((notification) => {
+                        const onOpen = onOpenFor(notification);
+                        const className = notification.read ? "card body-card" : "card body-card info-callout";
+                        return onOpen ? (
+                            <button className={`${className} summary-link`} key={notification.id} onClick={onOpen}>
+                                <p>{textFor(notification)}</p>
+                                <div className="muted small">{new Date(notification.created_at).toLocaleDateString("pl-PL")}</div>
+                            </button>
+                        ) : (
+                            <div className={className} key={notification.id}>
+                                <p>{textFor(notification)}</p>
+                                <div className="muted small">{new Date(notification.created_at).toLocaleDateString("pl-PL")}</div>
+                            </div>
+                        );
+                    })
                 )
             ) : (
                 <>
@@ -3919,10 +4076,12 @@ function GiftPlansScreen({
     plans,
     onSelectPlan,
     onRespond,
+    namesById,
 }: {
     plans: Array<{ plan: GiftPlanRow; myStatus: GiftPlanParticipantStatus; idea: Idea }>;
     onSelectPlan: (planId: string) => void;
     onRespond: (planId: string, accept: boolean) => void;
+    namesById: Record<string, string>;
 }) {
     return (
         <div className="stack">
@@ -3942,6 +4101,7 @@ function GiftPlansScreen({
                                 {myStatus === "invited" ? "Zaproszenie" : myStatus === "joined" ? "Dołączyłeś" : "Odrzucone"}
                             </span>
                         </div>
+                        <p className="muted small">Dla: {namesById[idea.ownerId] ?? "Ktoś"}</p>
                         <p className="muted small">{idea.price ? `${idea.price} zł` : "Bez ceny"}</p>
                         {myStatus === "invited" ? (
                             <div className="chip-row">
@@ -3997,6 +4157,7 @@ function GiftPlanDetailScreen({
     return (
         <div className="stack">
             <div className="card body-card">
+                <p className="muted small">Dla: {namesById[plan.idea.ownerId] ?? "Ktoś"}</p>
                 <strong>{plan.idea.title}</strong>
                 <p className="muted small">{plan.idea.price ? `${plan.idea.price} zł` : "Bez ceny"}</p>
             </div>
@@ -4587,7 +4748,7 @@ function AddFriendScreen({
 
     const handleShare = () => {
         if (canShare) {
-            navigator.share({ title: "Widoczek", text: shareMessage, url: inviteUrl }).catch(() => {});
+            navigator.share({ title: "WhishApp", text: shareMessage, url: inviteUrl }).catch(() => {});
         }
     };
 

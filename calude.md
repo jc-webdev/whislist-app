@@ -602,3 +602,63 @@ ani pod bezpośrednim URL-em (pusty ekran, zero wycieku) → wspólny znajomy
 widzi i głosuje → wynik z poprawnym % i ✓ przy własnym głosie. `tsc --noEmit`
 / `lint` (0 błędów) / `build` (wszystkie 4 nowe trasy zarejestrowane) czyste
 po naprawie powyższych błędów.
+
+## Szósta tura (2026-09-07) — pierwsi realni testerzy: klikalne powiadomienia, live realtime, rebranding
+
+Użytkownik zaczął zapraszać pierwsze prawdziwe osoby do testów po wrzuceniu
+na Vercel i szybko zgłosił serię błędów w prawdziwym użyciu (nie
+wychwyconych przez wcześniejsze testy, bo te zawsze robiły świeże logowanie
+per test, maskując prawdziwy problem).
+
+**Diagnoza root cause:** cztery tabele (`idea_suggestions`,
+`gift_plan_participants`, `polls`, `poll_votes`) miały włączony Supabase
+Realtime po stronie bazy, ale klient nigdy ich nie subskrybował — tylko
+`notifications`/`friend_requests` miały odbiorcę zdarzeń. Powiadomienie
+przychodziło (bo TO jest zasubskrybowane), ale treść pod spodem (sugestia,
+plan, ankieta) czekała do odświeżenia sesji. Stąd "widzę powiadomienie, nic
+nie ma".
+
+**Naprawione:**
+- Dzwoneczek powiadomień dodany do WSZYSTKICH 4 głównych zakładek (był tylko
+  na Pomysły/Ludzie).
+- Realtime INSERT/UPDATE dla `idea_suggestions`, `gift_plan_participants`,
+  `poll_votes`, plus nowe `polls`/`poll_options`/`gift_plans` dodane do
+  publikacji. Kluczowe odkrycie: zaproszenie do wspólnego prezentu wymaga
+  DOCIĄGNIĘCIA planu+pomysłu osobnym zapytaniem po odebraniu eventu na
+  `gift_plan_participants` — sam insert tego wiersza to pierwszy moment, gdy
+  zaproszony w ogóle ma RLS-owe prawo do zobaczenia `gift_plans`/`gift_ideas`,
+  więc subskrypcja samych tych tabel nic by nie przechwyciła (event minął,
+  zanim uprawnienie istniało). Ankiety inne: znajomy targetu kwalifikuje się
+  od razu przy tworzeniu ankiety, więc zwykła subskrypcja `polls` wystarcza.
+- Dodano `notifications.gift_plan_id`/`poll_id` (nowe kolumny) + zaktualizowano
+  `invite_to_gift_plan`/`notify_poll_created`, żeby powiadomienie niosło
+  DOKŁADNY cel nawigacji. Każdy typ powiadomienia w "Wszystkie" ma teraz
+  `onClick`: prowadzi do pomysłu/osoby/planu/ankiety albo przełącza zakładkę
+  Zaproszenia/Sugestie.
+- "Wspólny prezent" pokazuje "Dla: {imię właściciela}" (lista i szczegóły) —
+  wcześniej nie było widać, dla kogo w ogóle jest organizowany prezent.
+- **Realny incydent podczas migracji:** plik miał DWIE definicje
+  `notifications_type_check` (starą, wąską z początku pliku i nową, pełną
+  niżej) — ponowne wklejenie całego schema.sql od góry na żywej bazie z
+  wierszami typu `poll_created` uderzało w węższą definicję i failowało z
+  "check constraint is violated by some row". Usunięta zdublowana, węższa
+  definicja — nauka: przy pliku pomyślanym jako "wklej cały, wielokrotnie",
+  nie wolno mieć dwóch definicji tego samego constraintu w różnych miejscach,
+  nawet jeśli historycznie tak to narosło.
+- Rebranding "Widoczek" → "WhishApp" (nazwa robocza, użytkownik uznał starą
+  za "durną") we wszystkich user-facing miejscach w kodzie (landing, tytuł
+  strony, share dialog) + nagłówki CLAUDE.md/monetyzacja.txt. Celowo
+  NIE zmieniono localStorage key `widoczek_pending_invite` — czysto
+  techniczny identyfikator, zmiana ryzykowałaby zgubienie zaproszenia w
+  trakcie realizacji u kogoś z otwartą kartą, zero korzyści dla użytkownika.
+
+**Weryfikacja (Playwright, prawdziwy Supabase, symulacja "już zalogowany,
+bez przeładowania"):** potwierdzono, że zaproszenie do wspólnego prezentu
+dociera do już otwartej karty bez odświeżenia, powiadomienie renderuje się
+jako klikalny przycisk i prowadzi wprost do właściwego planu z poprawnym
+"Dla: X", "Dołączam" działa od razu bez przeładowania, nowa ankieta
+pojawia się w czasie rzeczywistym na ekranie powiadomień drugiej,
+już zalogowanej osoby. Stare powiadomienia sprzed migracji (bez
+`gift_plan_id`/`poll_id`) poprawnie renderują się jako NIEklikalne — brak
+fałszywej obietnicy nawigacji tam, gdzie nie ma dokąd. 31/31 testów
+backendowych bez regresji, `tsc`/`lint`/`build` czyste.

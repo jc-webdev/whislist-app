@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Widoczek — prywatne wishlisty i prezenty",
+  title: "WhishApp — prywatne wishlisty i prezenty",
   description: "Prywatna kolekcja pomysłów na prezenty. Udostępniaj tylko tym, którzy mają prawo widzieć.",
 };
 

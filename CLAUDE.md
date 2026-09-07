@@ -1,4 +1,8 @@
-# Widoczek — kontekst projektu
+# WhishApp — kontekst projektu
+
+Nazwa robocza (wcześniej "Widoczek", zmienione 2026-09-07 — jeśli natrafisz na
+starą nazwę w komentarzach czy nazwach kluczy technicznych, to celowo
+pozostawione ślady historyczne, nie literówka).
 
 Prywatna, społecznościowa aplikacja do zapisywania pomysłów na prezenty przez
 cały rok i udostępniania ich wybranym grupom znajomych, żeby mogli po cichu
