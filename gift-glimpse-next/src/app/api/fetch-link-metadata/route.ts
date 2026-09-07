@@ -93,6 +93,63 @@ function resolveUrl(maybeRelative: string, base: URL): string {
     }
 }
 
+type JsonLdProduct = {
+    name?: string;
+    description?: string;
+    image?: string | string[] | { url?: string } | Array<{ url?: string }>;
+    offers?: JsonLdOffer | JsonLdOffer[];
+    brand?: string | { name?: string };
+};
+
+type JsonLdOffer = { price?: string | number; priceCurrency?: string; seller?: { name?: string } };
+
+function firstImageUrl(image: JsonLdProduct["image"]): string | null {
+    if (!image) return null;
+    if (typeof image === "string") return image;
+    if (Array.isArray(image)) {
+        const first = image[0];
+        return typeof first === "string" ? first : (first?.url ?? null);
+    }
+    return image.url ?? null;
+}
+
+function firstOffer(offers: JsonLdProduct["offers"]): JsonLdOffer | null {
+    if (!offers) return null;
+    return Array.isArray(offers) ? (offers[0] ?? null) : offers;
+}
+
+// Wiele sklepów (szczególnie polskich) w ogóle nie ustawia OG-owych tagów
+// ceny (product:price:amount) — zamiast tego opisują produkt przez JSON-LD
+// (schema.org/Product), który jest dziś dużo częstszym standardem SEO niż
+// stare rozszerzenia Open Graph. Szukamy pierwszego bloku z @type "Product",
+// także zagnieżdżonego w tablicy albo w @graph (typowy wzorzec Yoast/WooCommerce).
+function extractJsonLdProduct(html: string): JsonLdProduct | null {
+    const scriptPattern = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+    let match: RegExpExecArray | null;
+    while ((match = scriptPattern.exec(html))) {
+        let parsed: unknown;
+        try {
+            parsed = JSON.parse(match[1].trim());
+        } catch {
+            continue;
+        }
+        const candidates: unknown[] = Array.isArray(parsed) ? parsed : [parsed];
+        for (const candidate of candidates) {
+            if (candidate && typeof candidate === "object") {
+                const graph = (candidate as { ["@graph"]?: unknown[] })["@graph"];
+                if (Array.isArray(graph)) candidates.push(...graph);
+            }
+        }
+        for (const candidate of candidates) {
+            if (!candidate || typeof candidate !== "object") continue;
+            const type = (candidate as { ["@type"]?: string | string[] })["@type"];
+            const isProduct = Array.isArray(type) ? type.includes("Product") : type === "Product";
+            if (isProduct) return candidate as JsonLdProduct;
+        }
+    }
+    return null;
+}
+
 export async function POST(request: Request) {
     let body: { url?: string };
     try {
@@ -142,6 +199,9 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "FETCH_FAILED" }, { status: 200 });
         }
 
+        // Celowo NIE przerywamy już przy pierwszym `</head>` — JSON-LD ze
+        // schema.org/Product (patrz niżej) bardzo często siedzi w <body>, nie
+        // w <head>. Jedyny limit to MAX_BYTES, więc i tak ograniczone i szybkie.
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let html = "";
@@ -151,18 +211,28 @@ export async function POST(request: Request) {
             if (done) break;
             totalBytes += value.byteLength;
             html += decoder.decode(value, { stream: true });
-            if (totalBytes > MAX_BYTES || /<\/head>/i.test(html)) break;
+            if (totalBytes > MAX_BYTES) break;
         }
         void reader.cancel().catch(() => {});
 
-        const title = extractMetaProperty(html, "og:title") ?? extractTitleTag(html);
-        const imageRaw = extractMetaProperty(html, "og:image") ?? extractMetaName(html, "twitter:image");
-        const description = extractMetaProperty(html, "og:description") ?? extractMetaName(html, "description");
-        const store = extractMetaProperty(html, "og:site_name") ?? target.hostname.replace(/^www\./, "");
+        const product = extractJsonLdProduct(html);
+        const offer = product ? firstOffer(product.offers) : null;
+
+        const title = extractMetaProperty(html, "og:title") ?? extractTitleTag(html) ?? product?.name ?? null;
+        const imageRaw =
+            extractMetaProperty(html, "og:image") ?? extractMetaName(html, "twitter:image") ?? firstImageUrl(product?.image);
+        const description =
+            extractMetaProperty(html, "og:description") ?? extractMetaName(html, "description") ?? product?.description ?? null;
+        const store =
+            extractMetaProperty(html, "og:site_name") ??
+            (typeof product?.brand === "string" ? product.brand : product?.brand?.name) ??
+            offer?.seller?.name ??
+            target.hostname.replace(/^www\./, "");
         const priceRaw =
             extractMetaProperty(html, "product:price:amount") ??
             extractMetaProperty(html, "og:price:amount") ??
-            extractMetaName(html, "twitter:data1");
+            extractMetaName(html, "twitter:data1") ??
+            (offer?.price != null ? String(offer.price) : null);
 
         return NextResponse.json({
             title: title?.trim() || null,

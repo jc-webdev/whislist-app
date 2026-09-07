@@ -247,17 +247,28 @@ reszty pomysłów właściciela.
   `SUPABASE_SERVICE_ROLE_KEY` (nigdy w kodzie klienckim/`NEXT_PUBLIC_*`).
   Usuwa użytkownika z `auth.users`, co kaskadowo (przez `on delete cascade`
   w schemacie) czyści profil, pomysły, rezerwacje, członkostwa w grupach.
-- `fetch-link-metadata/route.ts` — etap 5, pobiera OG-tagi (nazwa/zdjęcie/
-  cena/sklep/opis) z linku wklejonego w formularzu pomysłu. Musi być
-  server-side (CORS + bezpieczeństwo — klient nie powinien móc odpytywać
-  dowolnych serwerów w cudzym imieniu). Ma podstawową ochronę przed SSRF
-  (blokuje `localhost`/prywatne zakresy IP po `dns.lookup`) — **nie broni
-  przed DNS rebindingiem** (TOCTOU między sprawdzeniem a fetchem), uznane za
-  wystarczające przy obecnym, niskim profilu ryzyka tej funkcji. Timeout
-  5s, limit 2MB odczytu, przerywa strumień przy `</head>`. Błąd/timeout =
-  zwraca `{error: ...}` z kodem 200, nie 4xx/5xx — klient po prostu zostaje
-  z pustym formularzem ręcznym (zgodnie z instrukcją: "jeśli się nie uda,
-  pokazujemy formularz ręczny").
+- `fetch-link-metadata/route.ts` — etap 5, pobiera nazwę/zdjęcie/cenę/sklep/
+  opis z linku wklejonego w formularzu pomysłu. Musi być server-side (CORS +
+  bezpieczeństwo — klient nie powinien móc odpytywać dowolnych serwerów w
+  cudzym imieniu). Dwa źródła danych, w tej kolejności: (1) OG-tagi
+  (`og:title`/`og:image`/`og:description`/`og:site_name`/
+  `product:price:amount`), (2) **JSON-LD `schema.org/Product`** jako fallback
+  — dodane po tym, jak okazało się, że wiele sklepów (zwłaszcza polskich) w
+  ogóle nie ustawia starych OG-owych tagów ceny, tylko nowszy standard
+  JSON-LD (`extractJsonLdProduct`, szuka `@type: "Product"` także zagnieżdżone
+  w tablicy/`@graph`). Strumień **nie przerywa się już na `</head>`** —
+  JSON-LD produktu bardzo często siedzi w `<body>`, więc wcześniejsze
+  ucinanie na head-u czyniło ten fallback bezużytecznym; jedyny limit to
+  teraz `MAX_BYTES` (2MB). Ma podstawową ochronę przed SSRF (blokuje
+  `localhost`/prywatne zakresy IP po `dns.lookup`) — **nie broni przed DNS
+  rebindingiem** (TOCTOU między sprawdzeniem a fetchem), uznane za
+  wystarczające przy obecnym, niskim profilu ryzyka tej funkcji. Timeout 5s.
+  Błąd/timeout = zwraca `{error: ...}` z kodem 200, nie 4xx/5xx — klient po
+  prostu zostaje z pustym formularzem ręcznym (zgodnie z instrukcją: "jeśli
+  się nie uda, pokazujemy formularz ręczny"). Realny limit tego podejścia:
+  strony z ochroną bot/WAF (Cloudflare itp.) czasem odrzucają fetch
+  server-side niezależnie od jakości parsowania — to nie jest coś, co da się
+  naprawić po stronie parsera.
 
 ## Rzeczy, które wyglądały na gotowe, a były fasadą (uważaj na wzorzec)
 
