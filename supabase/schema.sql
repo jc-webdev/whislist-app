@@ -1600,3 +1600,158 @@ create policy "gift_reservations_insert_not_owner"
         )
     )
   );
+
+-- ==================================================
+-- Zarządzanie ankietą po utworzeniu (edycja/usunięcie/dodatkowe opcje),
+-- ad-hoc uczestnicy bez potrzeby wspólnej grupy, czat przypięty do ankiety —
+-- zgłoszone przez pierwszych testerów po zbudowaniu etapu 19: nie dało się
+-- nic poprawić po utworzeniu, dodać więcej opcji, ani zaprosić kogoś, kto
+-- nie miał akurat wspólnej grupy z targetem.
+-- ==================================================
+
+-- Tworca moze edytowac tresc pytania i usunac cala ankiete — kaskadowo
+-- kasuje opcje/glosy/uczestnikow/wiadomosci (wszystkie "on delete cascade").
+drop policy if exists "polls_update_own" on public.polls;
+create policy "polls_update_own"
+  on public.polls for update
+  using (auth.uid() = created_by)
+  with check (auth.uid() = created_by);
+
+drop policy if exists "polls_delete_own" on public.polls;
+create policy "polls_delete_own"
+  on public.polls for delete
+  using (auth.uid() = created_by);
+
+-- Ad-hoc uczestnicy ankiety: pozwala tworcy dodac konkretna osobe nawet bez
+-- wspolnej grupy z targetem — visibility przez group_id bywa za waska, nie
+-- zawsze jest gotowa grupa akurat pod te osoby. W przeciwienstwie do
+-- gift_plan_participants nie ma tu accept/decline: dodanie od razu daje
+-- widocznosc, bo stawka jest ta sama co przy zwyklym "wspolny znajomy widzi
+-- ankiete" — jedyna osoba, ktora nigdy nie moze zostac dodana, to sam target
+-- (wymuszone w constraint ponizej, nie tylko pominiete w UI).
+create table if not exists public.poll_participants (
+  poll_id uuid not null references public.polls(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  added_by uuid not null references public.profiles(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (poll_id, user_id)
+);
+
+alter table public.poll_participants enable row level security;
+
+drop policy if exists "poll_participants_select_visible_poll" on public.poll_participants;
+create policy "poll_participants_select_visible_poll"
+  on public.poll_participants for select
+  using (exists (select 1 from public.polls p where p.id = poll_participants.poll_id));
+
+drop policy if exists "poll_participants_insert_creator" on public.poll_participants;
+create policy "poll_participants_insert_creator"
+  on public.poll_participants for insert
+  with check (
+    auth.uid() = added_by
+    and public.is_friend_of(auth.uid(), user_id)
+    and exists (
+      select 1 from public.polls p
+      where p.id = poll_id
+        and p.created_by = auth.uid()
+        and p.target_id <> user_id
+    )
+  );
+
+do $$
+begin
+  alter publication supabase_realtime add table public.poll_participants;
+exception
+  when duplicate_object then null;
+end $$;
+
+-- Rozszerzenie widocznosci ankiety o jawnie dodanych uczestnikow, obok już
+-- istniejącego "wspólny znajomy targetu (+ ewentualny filtr grupy)".
+drop policy if exists "polls_select_related" on public.polls;
+create policy "polls_select_related"
+  on public.polls for select
+  using (
+    auth.uid() <> target_id
+    and (
+      auth.uid() = created_by
+      or exists (select 1 from public.poll_participants pp where pp.poll_id = polls.id and pp.user_id = auth.uid())
+      or (
+        public.is_friend_of(target_id, auth.uid())
+        and (
+          group_id is null
+          or exists (select 1 from public.group_members gm where gm.group_id = polls.group_id and gm.user_id = auth.uid())
+        )
+      )
+    )
+  );
+
+-- Powiadomienie o dodaniu do ankiety — bez tego dodana osoba (szczególnie
+-- gdy nie jest jeszcze wspólnym znajomym targetu, więc notify_poll_created
+-- jej nie objął) nie ma jak się dowiedzieć, że w ogóle powinna zajrzeć.
+-- Osobny typ zamiast reużycia 'poll_created', żeby treść była trafna
+-- ("dodał Cię do ankiety", nie "stworzył nową ankietę").
+alter table public.notifications drop constraint if exists notifications_type_check;
+alter table public.notifications add constraint notifications_type_check
+  check (type in (
+    'gift_received_reserved',
+    'gift_received_purchased_confirmed',
+    'friend_request_received',
+    'friend_request_accepted',
+    'idea_suggestion_received',
+    'gift_plan_invite',
+    'poll_created',
+    'poll_participant_added'
+  ));
+
+create or replace function public.notify_poll_participant_added()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into notifications (recipient_id, type, related_user_id, poll_id)
+  values (new.user_id, 'poll_participant_added', new.added_by, new.poll_id);
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_notify_poll_participant_added on public.poll_participants;
+create trigger trg_notify_poll_participant_added
+  after insert on public.poll_participants
+  for each row execute function public.notify_poll_participant_added();
+
+-- Czat przypięty do ankiety — widoczność dziedziczona z polls (ten sam
+-- wzorzec co poll_options/poll_votes: subquery do "polls" przechodzi przez
+-- JEJ RLS dla bieżącej roli, więc target nigdy nic tu nie zobaczy).
+create table if not exists public.poll_messages (
+  id uuid primary key default gen_random_uuid(),
+  poll_id uuid not null references public.polls(id) on delete cascade,
+  sender_id uuid not null references public.profiles(id) on delete cascade,
+  message text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_poll_messages_poll_id on public.poll_messages(poll_id, created_at);
+
+alter table public.poll_messages enable row level security;
+
+drop policy if exists "poll_messages_select_visible_poll" on public.poll_messages;
+create policy "poll_messages_select_visible_poll"
+  on public.poll_messages for select
+  using (exists (select 1 from public.polls p where p.id = poll_messages.poll_id));
+
+drop policy if exists "poll_messages_insert_visible_poll" on public.poll_messages;
+create policy "poll_messages_insert_visible_poll"
+  on public.poll_messages for insert
+  with check (
+    auth.uid() = sender_id
+    and exists (select 1 from public.polls p where p.id = poll_messages.poll_id)
+  );
+
+do $$
+begin
+  alter publication supabase_realtime add table public.poll_messages;
+exception
+  when duplicate_object then null;
+end $$;

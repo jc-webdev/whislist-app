@@ -59,7 +59,8 @@ type NotificationKind =
     | "friend_request_accepted"
     | "idea_suggestion_received"
     | "gift_plan_invite"
-    | "poll_created";
+    | "poll_created"
+    | "poll_participant_added";
 
 type NotificationRow = {
     id: string;
@@ -150,6 +151,21 @@ type PollVoteRow = {
     poll_id: string;
     option_id: string;
     user_id: string;
+    created_at: string;
+};
+
+type PollParticipantRow = {
+    poll_id: string;
+    user_id: string;
+    added_by: string;
+    created_at: string;
+};
+
+type PollMessageRow = {
+    id: string;
+    poll_id: string;
+    sender_id: string;
+    message: string;
     created_at: string;
 };
 
@@ -841,11 +857,14 @@ export function AppShell() {
     const [livePolls, setLivePolls] = useState<PollRow[]>([]);
     const [livePollOptions, setLivePollOptions] = useState<PollOptionRow[]>([]);
     const [livePollVotes, setLivePollVotes] = useState<PollVoteRow[]>([]);
-    // Wiadomości czatu ładujemy tylko dla aktualnie otwartego gift planu, nie
-    // wszystkich naraz przy starcie sesji — w odróżnieniu od reszty tabel to
-    // jedyna, która realnie rośnie bez ograniczeń w czasie.
+    const [livePollParticipants, setLivePollParticipants] = useState<PollParticipantRow[]>([]);
+    // Wiadomości czatu ładujemy tylko dla aktualnie otwartego gift planu/ankiety,
+    // nie wszystkich naraz przy starcie sesji — w odróżnieniu od reszty tabel to
+    // jedyne, które realnie rosną bez ograniczeń w czasie.
     const [chatMessages, setChatMessages] = useState<ChatMessageRow[]>([]);
     const [chatDraft, setChatDraft] = useState("");
+    const [pollMessages, setPollMessages] = useState<PollMessageRow[]>([]);
+    const [pollChatDraft, setPollChatDraft] = useState("");
     const [confirmRequest, setConfirmRequest] = useState<{
         title: string;
         message?: string;
@@ -910,6 +929,7 @@ export function AppShell() {
                 pollsRes,
                 pollOptionsRes,
                 pollVotesRes,
+                pollParticipantsRes,
             ] = await Promise.all([
                     supabase.from("profiles").select("*").order("full_name", { ascending: true }),
                     supabase.from("gift_ideas").select("*").order("created_at", { ascending: false }),
@@ -934,6 +954,7 @@ export function AppShell() {
                     supabase.from("polls").select("*"),
                     supabase.from("poll_options").select("*"),
                     supabase.from("poll_votes").select("*"),
+                    supabase.from("poll_participants").select("*"),
                 ]);
 
             let profilesRes = initialProfilesRes;
@@ -965,6 +986,7 @@ export function AppShell() {
             if (pollsRes.data) setLivePolls(pollsRes.data);
             if (pollOptionsRes.data) setLivePollOptions(pollOptionsRes.data);
             if (pollVotesRes.data) setLivePollVotes(pollVotesRes.data);
+            if (pollParticipantsRes.data) setLivePollParticipants(pollParticipantsRes.data);
 
             // Zaproszenie zapisane przed rejestracją/logowaniem (patrz LandingScreen
             // przez InviteScreen) — odzyskujemy je tutaj, bo to jedyne miejsce, przez
@@ -1017,7 +1039,9 @@ export function AppShell() {
                 setLivePolls([]);
                 setLivePollOptions([]);
                 setLivePollVotes([]);
+                setLivePollParticipants([]);
                 setChatMessages([]);
+                setPollMessages([]);
             }
         });
 
@@ -1652,10 +1676,55 @@ export function AppShell() {
             )
             .on(
                 "postgres_changes",
+                { event: "UPDATE", schema: "public", table: "polls" },
+                (payload) => {
+                    const updated = payload.new as PollRow;
+                    setLivePolls((prev) => prev.map((row) => (row.id === updated.id ? updated : row)));
+                }
+            )
+            .on(
+                "postgres_changes",
+                { event: "DELETE", schema: "public", table: "polls" },
+                (payload) => {
+                    const deletedId = (payload.old as { id?: string }).id;
+                    if (deletedId) setLivePolls((prev) => prev.filter((row) => row.id !== deletedId));
+                }
+            )
+            .on(
+                "postgres_changes",
                 { event: "INSERT", schema: "public", table: "poll_options" },
                 (payload) => {
                     const option = payload.new as PollOptionRow;
                     setLivePollOptions((prev) => (prev.some((row) => row.id === option.id) ? prev : [...prev, option]));
+                }
+            )
+            // Ad-hoc uczestnicy ankiety (dodani bez wspólnej grupy z targetem) —
+            // ten sam problem co przy zaproszeniu do wspólnego prezentu: dodanie
+            // jest pierwszym momentem, w którym dodana osoba w ogóle ma prawo RLS
+            // zobaczyć wiersz w polls/poll_options, więc samo dodanie tabel do
+            // publikacji nie wystarczy — trzeba je dociągnąć osobnym zapytaniem.
+            .on(
+                "postgres_changes",
+                { event: "INSERT", schema: "public", table: "poll_participants" },
+                (payload) => {
+                    const participant = payload.new as PollParticipantRow;
+                    setLivePollParticipants((prev) =>
+                        prev.some((row) => row.poll_id === participant.poll_id && row.user_id === participant.user_id)
+                            ? prev
+                            : [...prev, participant]
+                    );
+                    void (async () => {
+                        const { data: poll } = await supabase.from("polls").select("*").eq("id", participant.poll_id).single();
+                        if (!poll) return;
+                        setLivePolls((prev) => (prev.some((row) => row.id === poll.id) ? prev : [...prev, poll as PollRow]));
+                        const { data: options } = await supabase.from("poll_options").select("*").eq("poll_id", poll.id);
+                        if (options) {
+                            setLivePollOptions((prev) => {
+                                const existingIds = new Set(prev.map((row) => row.id));
+                                return [...prev, ...options.filter((row) => !existingIds.has(row.id))];
+                            });
+                        }
+                    })();
                 }
             )
             .on(
@@ -2342,6 +2411,97 @@ export function AppShell() {
         // Nie dopisujemy lokalnie — wiadomość wróci przez subskrypcję Realtime
         // powyżej (nadawca też jest na niej), więc unikamy zdublowania wpisu.
         setChatDraft("");
+    };
+
+    // Czat ankiety — dokładnie ten sam wzorzec leniwego ładowania co czat
+    // wspólnego prezentu powyżej (patrz komentarz przy chatMessages).
+    useEffect(() => {
+        if (!routePollId) return;
+        let cancelled = false;
+
+        void (async () => {
+            const { data } = await supabase
+                .from("poll_messages")
+                .select("*")
+                .eq("poll_id", routePollId)
+                .order("created_at", { ascending: true });
+            if (!cancelled && data) setPollMessages(data);
+        })();
+
+        const channel = supabase
+            .channel(`poll-chat-${routePollId}`)
+            .on(
+                "postgres_changes",
+                { event: "INSERT", schema: "public", table: "poll_messages", filter: `poll_id=eq.${routePollId}` },
+                (payload) => {
+                    setPollMessages((prev) => [...prev, payload.new as PollMessageRow]);
+                }
+            )
+            .subscribe();
+
+        return () => {
+            cancelled = true;
+            setPollMessages([]);
+            void supabase.removeChannel(channel);
+        };
+    }, [routePollId]);
+
+    const sendPollMessage = async (pollId: string, message: string) => {
+        if (!session || !message.trim()) return;
+        setIdeaActionError("");
+        const { error } = await supabase
+            .from("poll_messages")
+            .insert({ poll_id: pollId, sender_id: session.user.id, message: message.trim() });
+        if (error) {
+            setIdeaActionError(error.message);
+            return;
+        }
+        setPollChatDraft("");
+    };
+
+    const updatePollQuestion = async (pollId: string, question: string) => {
+        if (!session || !question.trim()) return;
+        setIdeaActionError("");
+        const { error } = await supabase.from("polls").update({ question: question.trim() }).eq("id", pollId);
+        if (error) {
+            setIdeaActionError(error.message);
+            return;
+        }
+        setLivePolls((prev) => prev.map((row) => (row.id === pollId ? { ...row, question: question.trim() } : row)));
+    };
+
+    const deletePoll = async (pollId: string) => {
+        if (!session) return;
+        setIdeaActionError("");
+        const { error } = await supabase.from("polls").delete().eq("id", pollId);
+        if (error) {
+            setIdeaActionError(error.message);
+            return;
+        }
+        setLivePolls((prev) => prev.filter((row) => row.id !== pollId));
+        goToPolls();
+    };
+
+    const addPollOption = async (pollId: string, label: string) => {
+        if (!session || !label.trim()) return;
+        setIdeaActionError("");
+        const { data, error } = await supabase.from("poll_options").insert({ poll_id: pollId, label: label.trim() }).select().single();
+        if (error || !data) {
+            setIdeaActionError(error?.message ?? "Nie udało się dodać opcji.");
+            return;
+        }
+        setLivePollOptions((prev) => [...prev, data]);
+    };
+
+    const addPollParticipant = async (pollId: string, userId: string) => {
+        if (!session) return;
+        setIdeaActionError("");
+        const { error } = await supabase.from("poll_participants").insert({ poll_id: pollId, user_id: userId, added_by: session.user.id });
+        if (error) {
+            setIdeaActionError(error.message);
+            return;
+        }
+        setLivePollParticipants((prev) => [...prev, { poll_id: pollId, user_id: userId, added_by: session.user.id, created_at: new Date().toISOString() }]);
     };
 
     // ETAP 8 — Okazje (urodziny i inne wydarzenia z prawdziwą datą).
@@ -3111,7 +3271,31 @@ export function AppShell() {
                         {screen === "poll-detail" ? (
                             <PollDetailScreen
                                 poll={selectedPoll}
+                                myId={session.user.id}
+                                participants={livePollParticipants
+                                    .filter((row) => row.poll_id === selectedPoll?.poll.id)
+                                    .map((row) => {
+                                        const profile = liveProfiles.find((p) => p.id === row.user_id);
+                                        return { id: row.user_id, name: profile?.full_name ?? "Ktoś" };
+                                    })}
+                                invitableFriends={effectivePeople.filter(
+                                    (person) =>
+                                        person.id !== selectedPoll?.poll.target_id &&
+                                        !livePollParticipants.some(
+                                            (row) => row.poll_id === selectedPoll?.poll.id && row.user_id === person.id
+                                        )
+                                )}
+                                chatMessages={pollMessages}
+                                chatDraft={pollChatDraft}
+                                onChatDraftChange={setPollChatDraft}
+                                onSendChatMessage={() => selectedPoll && void sendPollMessage(selectedPoll.poll.id, pollChatDraft)}
+                                namesById={Object.fromEntries(liveProfiles.map((row) => [row.id, row.full_name]))}
                                 onVote={(optionId) => selectedPoll && void castVote(selectedPoll.poll.id, optionId)}
+                                onEditQuestion={(question) => selectedPoll && void updatePollQuestion(selectedPoll.poll.id, question)}
+                                onDelete={() => selectedPoll && void deletePoll(selectedPoll.poll.id)}
+                                onAddOption={(label) => selectedPoll && void addPollOption(selectedPoll.poll.id, label)}
+                                onAddParticipant={(userId) => selectedPoll && void addPollParticipant(selectedPoll.poll.id, userId)}
+                                error={ideaActionError}
                             />
                         ) : null}
 
@@ -3864,6 +4048,8 @@ function NotificationsScreen({
                 return `🤝 ${personName ?? "Ktoś"} zaprosił(a) Cię do wspólnej organizacji prezentu${ideaTitle ? ` „${ideaTitle}"` : ""}.`;
             case "poll_created":
                 return `📊 ${personName ?? "Ktoś"} stworzył(a) nową ankietę o pomysłach na prezent.`;
+            case "poll_participant_added":
+                return `📊 ${personName ?? "Ktoś"} dodał(a) Cię do ankiety o pomysłach na prezent.`;
             default:
                 return "Nowe powiadomienie.";
         }
@@ -3886,6 +4072,7 @@ function NotificationsScreen({
             case "gift_plan_invite":
                 return notification.gift_plan_id ? () => onOpenGiftPlan(notification.gift_plan_id!) : null;
             case "poll_created":
+            case "poll_participant_added":
                 return notification.poll_id ? () => onOpenPoll(notification.poll_id!) : null;
             default:
                 return null;
@@ -4482,19 +4669,69 @@ function PollsScreen({
 
 function PollDetailScreen({
     poll,
+    myId,
+    participants,
+    invitableFriends,
+    chatMessages,
+    chatDraft,
+    onChatDraftChange,
+    onSendChatMessage,
+    namesById,
     onVote,
+    onEditQuestion,
+    onDelete,
+    onAddOption,
+    onAddParticipant,
+    error,
 }: {
     poll: { poll: PollRow; targetName: string; options: Array<PollOptionRow & { voteCount: number }>; myOptionId: string | null } | null;
+    myId: string;
+    participants: Array<{ id: string; name: string }>;
+    invitableFriends: Person[];
+    chatMessages: PollMessageRow[];
+    chatDraft: string;
+    onChatDraftChange: (value: string) => void;
+    onSendChatMessage: () => void;
+    namesById: Record<string, string>;
     onVote: (optionId: string) => void;
+    onEditQuestion: (question: string) => void;
+    onDelete: () => void;
+    onAddOption: (label: string) => void;
+    onAddParticipant: (userId: string) => void;
+    error?: string;
 }) {
+    const [isEditingQuestion, setIsEditingQuestion] = useState(false);
+    const [questionDraft, setQuestionDraft] = useState(poll?.poll.question ?? "");
+    const [newOptionDraft, setNewOptionDraft] = useState("");
+    const [isInviting, setIsInviting] = useState(false);
+
     if (!poll) return null;
+    const isCreator = poll.poll.created_by === myId;
     const totalVotes = poll.options.reduce((sum, option) => sum + option.voteCount, 0);
 
     return (
         <div className="stack">
             <div className="card body-card">
                 <div className="eyebrow">Dla {poll.targetName}</div>
-                <h2>{poll.poll.question}</h2>
+                {isEditingQuestion ? (
+                    <div className="field-group">
+                        <input value={questionDraft} onChange={(event) => setQuestionDraft(event.target.value)} />
+                        <div className="chip-row">
+                            <button
+                                className="mini-button"
+                                onClick={() => {
+                                    onEditQuestion(questionDraft);
+                                    setIsEditingQuestion(false);
+                                }}
+                            >
+                                Zapisz
+                            </button>
+                            <button className="ghost-button" onClick={() => setIsEditingQuestion(false)}>Anuluj</button>
+                        </div>
+                    </div>
+                ) : (
+                    <h2>{poll.poll.question}</h2>
+                )}
                 <div className="stack small-stack" style={{ marginTop: "14px" }}>
                     {poll.options.map((option) => {
                         const isMine = option.id === poll.myOptionId;
@@ -4512,6 +4749,115 @@ function PollDetailScreen({
                     })}
                 </div>
             </div>
+
+            {error ? <div className="error-box">{error}</div> : null}
+
+            {isCreator ? (
+                <div className="card body-card">
+                    <h3>Dodaj opcję</h3>
+                    <div className="field-group">
+                        <div className="chip-row">
+                            <input
+                                value={newOptionDraft}
+                                onChange={(event) => setNewOptionDraft(event.target.value)}
+                                placeholder="Nowa opcja"
+                            />
+                            <button
+                                className="mini-button"
+                                disabled={!newOptionDraft.trim()}
+                                onClick={() => {
+                                    onAddOption(newOptionDraft);
+                                    setNewOptionDraft("");
+                                }}
+                            >
+                                Dodaj
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
+
+            {participants.length > 0 ? (
+                <div className="card body-card">
+                    <h3>Dodatkowo zaproszeni</h3>
+                    <div className="stack small-stack">
+                        {participants.map((participant) => (
+                            <div className="list-row" key={participant.id}>
+                                <span>{participant.name}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            ) : null}
+
+            {isCreator ? (
+                <div className="card body-card">
+                    <h3>Zaproś kolejną osobę</h3>
+                    <p className="muted small">
+                        Przydatne, gdy nie masz akurat gotowej grupy dokładnie pod te osoby.
+                    </p>
+                    {isInviting ? (
+                        invitableFriends.length === 0 ? (
+                            <p className="muted small">Nie masz już kogo dodatkowo zaprosić.</p>
+                        ) : (
+                            <div className="chip-row wrap">
+                                {invitableFriends.map((friend) => (
+                                    <button
+                                        key={friend.id}
+                                        className="chip"
+                                        onClick={() => {
+                                            onAddParticipant(friend.id);
+                                            setIsInviting(false);
+                                        }}
+                                    >
+                                        {friend.name}
+                                    </button>
+                                ))}
+                            </div>
+                        )
+                    ) : (
+                        <button className="mini-button" onClick={() => setIsInviting(true)}>+ Zaproś</button>
+                    )}
+                </div>
+            ) : null}
+
+            <div className="card body-card">
+                <h3>💬 Czat</h3>
+                <div className="chat-log">
+                    {chatMessages.length === 0 ? (
+                        <p className="muted small">Bez wiadomości — napisz pierwszy.</p>
+                    ) : (
+                        chatMessages.map((message) => (
+                            <div
+                                key={message.id}
+                                className={message.sender_id === myId ? "chat-message chat-message-mine" : "chat-message"}
+                            >
+                                {message.sender_id !== myId ? (
+                                    <div className="chat-message-sender">{namesById[message.sender_id] ?? "Ktoś"}</div>
+                                ) : null}
+                                <div className="chat-message-bubble">{message.message}</div>
+                            </div>
+                        ))
+                    )}
+                </div>
+                <div className="chat-input-row">
+                    <input
+                        value={chatDraft}
+                        onChange={(event) => onChatDraftChange(event.target.value)}
+                        onKeyDown={(event) => {
+                            if (event.key === "Enter" && chatDraft.trim()) onSendChatMessage();
+                        }}
+                        placeholder="Napisz wiadomość..."
+                    />
+                    <button className="mini-button" onClick={onSendChatMessage} disabled={!chatDraft.trim()}>
+                        Wyślij
+                    </button>
+                </div>
+            </div>
+
+            {isCreator ? (
+                <button className="secondary-button danger-button" onClick={onDelete}>Usuń ankietę</button>
+            ) : null}
         </div>
     );
 }

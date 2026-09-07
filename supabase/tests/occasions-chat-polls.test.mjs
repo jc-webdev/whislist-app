@@ -288,6 +288,128 @@ async function main() {
         assert.equal(votesForTarget.length, 0, "target nie widzi głosów ankiety o sobie");
     });
 
+    await test("polls: twórca może edytować pytanie i usunąć ankietę, nikt inny nie może", async () => {
+        const { data: poll } = await friendA.client
+            .from("polls")
+            .insert({ target_id: owner.id, created_by: friendA.id, question: "Stare pytanie" })
+            .select()
+            .single();
+
+        const { error: editByOtherError } = await friendB.client
+            .from("polls")
+            .update({ question: "Podmienione przez kogoś innego" })
+            .eq("id", poll.id);
+        void editByOtherError;
+        const { data: afterOtherEdit } = await admin.from("polls").select("question").eq("id", poll.id).single();
+        assert.equal(afterOtherEdit.question, "Stare pytanie", "tylko twórca może edytować pytanie");
+
+        const { error: editError } = await friendA.client.from("polls").update({ question: "Nowe pytanie" }).eq("id", poll.id);
+        assert.equal(editError, null);
+        const { data: afterEdit } = await admin.from("polls").select("question").eq("id", poll.id).single();
+        assert.equal(afterEdit.question, "Nowe pytanie");
+
+        const { error: deleteByOtherError } = await friendB.client.from("polls").delete().eq("id", poll.id);
+        void deleteByOtherError;
+        const { data: stillThere } = await admin.from("polls").select("*").eq("id", poll.id);
+        assert.equal(stillThere.length, 1, "friendB nie powinien móc usunąć cudzej ankiety");
+
+        const { error: deleteError } = await friendA.client.from("polls").delete().eq("id", poll.id);
+        assert.equal(deleteError, null);
+        const { data: afterDelete } = await admin.from("polls").select("*").eq("id", poll.id);
+        assert.equal(afterDelete.length, 0);
+    });
+
+    await test("polls: twórca może dodać opcję do już istniejącej ankiety", async () => {
+        const { data: poll } = await friendA.client
+            .from("polls")
+            .insert({ target_id: owner.id, created_by: friendA.id, question: "Dokładamy opcję?" })
+            .select()
+            .single();
+        await friendA.client.from("poll_options").insert({ poll_id: poll.id, label: "Pierwsza" });
+
+        const { data: added, error } = await friendA.client
+            .from("poll_options")
+            .insert({ poll_id: poll.id, label: "Dodana później" })
+            .select()
+            .single();
+        assert.equal(error, null);
+
+        const { data: options } = await friendA.client.from("poll_options").select("*").eq("poll_id", poll.id);
+        assert.equal(options.length, 2);
+        assert.ok(options.some((row) => row.id === added.id));
+    });
+
+    await test("poll_participants: twórca może dodać osobę bez wspólnej grupy z targetem, target nadal wykluczony", async () => {
+        const friendC = await createUser("friendc");
+        await admin.from("friendships").insert({ user_id: friendA.id, friend_id: friendC.id });
+        // friendC jest znajomym TYLKO friendA (twórcy), nie ownera (targetu) —
+        // bez poll_participants w ogóle nie zobaczyłby tej ankiety.
+
+        const { data: poll } = await friendA.client
+            .from("polls")
+            .insert({ target_id: owner.id, created_by: friendA.id, question: "Ankieta z ad-hoc uczestnikiem" })
+            .select()
+            .single();
+
+        const { data: beforeAdd } = await friendC.client.from("polls").select("*").eq("id", poll.id);
+        assert.equal(beforeAdd.length, 0, "friendC nie widzi ankiety, zanim zostanie dodany");
+
+        const { error: addTargetError } = await friendA.client
+            .from("poll_participants")
+            .insert({ poll_id: poll.id, user_id: owner.id, added_by: friendA.id });
+        assert.ok(addTargetError, "nie można dodać targetu jako uczestnika ankiety o nim samym");
+
+        const { error: addByOtherError } = await friendB.client
+            .from("poll_participants")
+            .insert({ poll_id: poll.id, user_id: friendC.id, added_by: friendB.id });
+        assert.ok(addByOtherError, "tylko twórca ankiety dodaje uczestników");
+
+        const { error: addError } = await friendA.client
+            .from("poll_participants")
+            .insert({ poll_id: poll.id, user_id: friendC.id, added_by: friendA.id });
+        assert.equal(addError, null);
+
+        const { data: afterAdd } = await friendC.client.from("polls").select("*").eq("id", poll.id);
+        assert.equal(afterAdd.length, 1, "friendC widzi ankietę po dodaniu jako uczestnik");
+
+        const { data: notifications } = await friendC.client
+            .from("notifications")
+            .select("*")
+            .eq("type", "poll_participant_added");
+        assert.equal(notifications.length, 1);
+
+        await admin.auth.admin.deleteUser(friendC.id);
+    });
+
+    await test("poll_messages: widoczne tak samo jak sama ankieta, target wykluczony", async () => {
+        const { data: poll } = await friendA.client
+            .from("polls")
+            .insert({ target_id: owner.id, created_by: friendA.id, question: "Ankieta z czatem" })
+            .select()
+            .single();
+
+        const { error: msgError } = await friendB.client
+            .from("poll_messages")
+            .insert({ poll_id: poll.id, sender_id: friendB.id, message: "Co wybieramy?" });
+        assert.equal(msgError, null);
+
+        const { data: forCreator } = await friendA.client.from("poll_messages").select("*").eq("poll_id", poll.id);
+        assert.equal(forCreator.length, 1);
+
+        const { data: forTarget } = await owner.client.from("poll_messages").select("*").eq("poll_id", poll.id);
+        assert.equal(forTarget.length, 0, "target nie widzi czatu ankiety o sobie");
+
+        const { error: outsiderMsgError } = await outsider.client
+            .from("poll_messages")
+            .insert({ poll_id: poll.id, sender_id: outsider.id, message: "Wpuśćcie mnie" });
+        assert.ok(outsiderMsgError, "obcy (bez dostępu do ankiety) nie może pisać na jej czacie");
+
+        const { error: impersonateError } = await friendB.client
+            .from("poll_messages")
+            .insert({ poll_id: poll.id, sender_id: friendA.id, message: "Podszywam się" });
+        assert.ok(impersonateError, "nie można wysłać wiadomości jako ktoś inny");
+    });
+
     await cleanup();
 
     console.log(`\n${passed} testów przeszło.`);

@@ -168,6 +168,31 @@ Tabele:
   upsert z `onConflict: "poll_id,user_id"` (jeden głos na osobę, zmiana
   zdania nadpisuje). `notify_poll_created` (trigger) powiadamia wspólnych
   znajomych targetu poza nim samym i twórcą, z uwzględnieniem `group_id`.
+  Twórca może edytować pytanie (`polls_update_own`) i usunąć ankietę
+  (`polls_delete_own`, kaskadowo kasuje opcje/głosy/uczestników/wiadomości)
+  oraz dodawać kolejne opcje po utworzeniu (istniejąca polityka insert na
+  `poll_options` już na to pozwalała — brakowało tylko UI).
+- `poll_participants` (poll_id, user_id, added_by) — ad-hoc uczestnicy
+  ankiety, dodani przez twórcę BEZ potrzeby wspólnej grupy z targetem
+  (zgłoszone przez testerów: "nie zawsze jest gotowa grupa akurat pod te
+  osoby"). W przeciwieństwie do `gift_plan_participants` brak accept/decline
+  — dodanie od razu daje widoczność (ta sama stawka co "wspólny znajomy widzi
+  ankietę", więc nie ma tu niespodzianki do ochrony POZA targetem, który jest
+  jawnie wykluczony w constraint na insert, nie tylko pominięty w UI).
+  Rozszerza `polls_select_related` o czwarty warunek OR. `notify_poll_participant_added`
+  (osobny typ powiadomienia, nie reużycie `poll_created` — treść musi mówić
+  "dodano Cię", nie "stworzono nową"). Ten sam problem co przy zaproszeniu do
+  `gift_plan_participants`: dodanie jest pierwszym momentem, w którym dodana
+  osoba w ogóle ma prawo RLS zobaczyć `polls`/`poll_options`, więc samo
+  dodanie tabeli do publikacji Realtime nie wystarcza — klient musi dociągnąć
+  ankietę osobnym zapytaniem po odebraniu eventu (patrz handler w AppShell).
+- `poll_messages` — czat przypięty do ankiety, ten sam wzorzec dziedziczenia
+  widoczności co `poll_options`/`poll_votes` (`exists (select 1 from polls
+  p where p.id = ...)`) — każdy, kto widzi ankietę, może w niej pisać;
+  celowo BEZ osobnego węższego konceptu "uczestnika czatu", bo czat nie jest
+  bardziej wrażliwy niż sama ankieta/głosy, które ci sami widzowie już widzą.
+  Ładowany leniwie per otwarta ankieta, tak jak `chat_messages` dla
+  wspólnych prezentów (patrz ten wpis niżej o `chat_messages`).
 - Supabase Storage buckety `avatars` i `idea-images` (public, zapis tylko we
   własnym folderze `<user_id>/...`; SELECT ograniczony do własnego folderu —
   **wymagane dla `{upsert: true}`**, patrz "Do zapamiętania" niżej). Przed
