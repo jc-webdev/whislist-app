@@ -2488,9 +2488,7 @@ export function AppShell() {
     if (authLoading) {
         return (
             <div className="app-shell auth-shell">
-                <div className="card body-card">
-                    <h2>Ładowanie danych...</h2>
-                </div>
+                <div className="app-loader" role="status" aria-label="Ładowanie" />
             </div>
         );
     }
