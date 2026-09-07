@@ -3315,7 +3315,7 @@ function IdeasScreen({
     groupNameById: Record<string, string>;
 }) {
     const recent = ideas.slice(0, 2);
-    const rest = ideas.slice(2);
+    const rest = ideas;
     const isReserved = (ideaId: string) => Boolean(reservationStatus?.[ideaId]?.reserved);
 
     return (
