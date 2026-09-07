@@ -136,6 +136,18 @@ async function main() {
         assert.equal(error, null);
     });
 
+    await test("przełącznik rezerwacji per pomysł blokuje rezerwację mimo grupy i profilu z włączonymi rezerwacjami", async () => {
+        const group = await makeSharedGroup(owner.id, [friendA.id]);
+        const idea = await makeIdea(owner.id, group, { reservations_enabled: false });
+
+        const { error } = await friendA.client.from("gift_reservations").insert({ idea_id: idea, reserved_by: friendA.id });
+        assert.ok(error, "rezerwacja powinna być zablokowana przełącznikiem na samym pomyśle");
+
+        await admin.from("gift_ideas").update({ reservations_enabled: true }).eq("id", idea);
+        const { error: afterEnableError } = await friendA.client.from("gift_reservations").insert({ idea_id: idea, reserved_by: friendA.id });
+        assert.equal(afterEnableError, null, "po włączeniu z powrotem rezerwacja powinna przejść");
+    });
+
     // ---- ETAP 15 — Podrzuć pomysł ----
 
     await test("sugestia: nadawca może wysłać znajomemu, dostaje notyfikację, obcy nie może", async () => {

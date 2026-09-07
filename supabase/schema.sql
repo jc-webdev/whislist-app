@@ -1561,3 +1561,42 @@ end $$;
 -- powinien się uruchomić przez normalny przepływ aplikacji — usunięty dla
 -- czystości i żeby nikt przypadkiem nie dodał kiedyś insertu bez tej kolumny.
 alter table public.profiles alter column city drop default;
+
+-- ==================================================
+-- Przełącznik rezerwacji per pomysł (obok globalnego na profilu i per grupa
+-- na idea_groups) — zgłoszone przez pierwszych testerów jako brakująca
+-- kontrola: właściciel chciał móc wyłączyć rezerwacje dla JEDNEGO konkretnego
+-- pomysłu, nie tylko dla całego konta albo całej grupy. Domyślnie true, więc
+-- istniejące pomysły się nie zmieniają.
+-- ==================================================
+
+alter table public.gift_ideas add column if not exists reservations_enabled boolean not null default true;
+
+drop policy if exists "gift_reservations_insert_not_owner" on public.gift_reservations;
+create policy "gift_reservations_insert_not_owner"
+  on public.gift_reservations for insert
+  with check (
+    auth.uid() = reserved_by
+    and gift_reservations.status = 'reserved'
+    and exists (
+      select 1
+      from public.gift_ideas i
+      join public.profiles p on p.id = i.user_id
+      where i.id = idea_id
+        and i.user_id <> auth.uid()
+        and i.status = 'active'
+        and i.reservations_enabled
+        and p.reservations_enabled
+        and (
+          (i.visible_to_all and public.is_friend_of(i.user_id, auth.uid()))
+          or exists (
+            select 1
+            from public.idea_visibility iv
+            join public.group_members gm on gm.group_id = iv.group_id and gm.user_id = auth.uid()
+            join public.idea_groups g on g.id = iv.group_id
+            where iv.idea_id = i.id
+              and g.reservations_enabled
+          )
+        )
+    )
+  );

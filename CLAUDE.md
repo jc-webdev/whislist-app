@@ -101,11 +101,18 @@ Tabele:
   istniejącej grupy). Mają `reservations_enabled` **per grupa**.
 - `gift_ideas` — pomysł. Ma `status` (`active`/`archived`, patrz cykl życia
   niżej), `visible_to_all` (trzecia kategoria widoczności obok grup i "tylko
-  ja"), `image_url` (opcjonalne zdjęcie — upload do bucketu `idea-images`
-  albo URL z automatycznego pobrania metadanych). **Nie ma już kolumny
-  `visibility`** (usunięta) ani `reserved_by` (usunięta) — zastąpione przez
-  tabele niżej. Kolumna `category` istnieje (nullable) jako zaczątek pod
-  przyszły katalog produktów — formularz jej jeszcze nie zbiera.
+  ja" — **domyślna dla nowego pomysłu**, zmienione po feedbacku pierwszych
+  testerów, którzy oczekiwali, że nowy pomysł jest od razu widoczny
+  wszystkim, nie tylko właścicielowi), `reservations_enabled` (domyślnie
+  `true` — przełącznik rezerwacji **per pomysł**, trzeci poziom obok
+  globalnego na `profiles` i per grupa na `idea_groups`; wszystkie trzy
+  muszą być spełnione naraz, sprawdzane w RLS `gift_reservations_insert_not_owner`
+  i lokalnie w `selectedIdeaOwnerAllowsReservations`), `image_url`
+  (opcjonalne zdjęcie — upload do bucketu `idea-images` albo URL z
+  automatycznego pobrania metadanych). **Nie ma już kolumny `visibility`**
+  (usunięta) ani `reserved_by` (usunięta) — zastąpione przez tabele niżej.
+  Kolumna `category` istnieje (nullable) jako zaczątek pod przyszły katalog
+  produktów — formularz jej jeszcze nie zbiera.
 - `idea_visibility` (idea_id, group_id) — komu pomysł jest udostępniony przez
   konkretną grupę. **Brak wierszy i `visible_to_all=false` = widoczny tylko
   dla właściciela.** To jest mechanizm realnie wymuszający prywatność (patrz
@@ -373,3 +380,24 @@ W `gift-glimpse-next/`:
   placeholder dla stanu "jeszcze niezalogowany" (ekran przed sesją) — nigdy
   jako fallback dla brakującego pola realnego profilu; tam właściwy fallback
   to `null`/`""`, nie żaden mock.
+- **Powiadomienia to jeden wspólny moduł, nie osobny ekran per zakładka.**
+  Był kiedyś osobny `FriendRequestsScreen`/`/people/requests` dostępny tylko
+  z dzwoneczka na zakładce Ludzie, podczas gdy dzwoneczek na Pomysły
+  prowadził do pełnego `NotificationsScreen` (`/notifications`) z trzema
+  zakładkami (Wszystkie/Zaproszenia/Sugestie) — dwa równoległe, niespójne
+  wejścia do tej samej informacji, zgłoszone przez testerów jako mylące.
+  Usunięty: dzwoneczek na Ludzie woła teraz `goToFriendRequests()`, które
+  ustawia `notificationsTab("zaproszenia")` i nawiguje do TEGO SAMEGO
+  `/notifications`. Zasada na przyszłość: jeśli dwa miejsca w UI pokazują tę
+  samą kategorię danych, powinny renderować ten sam komponent/ekran (różniąc
+  się co najwyżej domyślną zakładką), nie dwie osobne implementacje.
+- **Feedback po akcji (np. "Zapisano zmiany.") musi być widoczny bez
+  przewijania.** Realny incydent: `EditProfileScreen` ustawiał `profileInfo`
+  poprawnie po zapisie danych, ale renderował go jednym wspólnym banerem na
+  samym DOLE długiego, wielosekcyjnego formularza (dane/e-mail/hasło) —
+  użytkownik klikający "Zapisz dane" blisko góry nigdy nie widział
+  potwierdzenia bez ręcznego przewinięcia, więc zapis "wyglądał" jakby nic
+  nie robił, mimo że działał poprawnie. Naprawione dodaniem tego samego
+  banera od razu pod przyciskiem "Zapisz dane". Zasada: bannery
+  sukcesu/błędu muszą siedzieć obok akcji, która je wywołała, nie w jednym
+  zbiorczym miejscu na końcu długiego ekranu.

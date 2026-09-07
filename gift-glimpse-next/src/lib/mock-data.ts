@@ -23,6 +23,7 @@ export type Idea = {
     priority: Priority;
     visibility: string[];
     visibleToAll: boolean;
+    reservationsEnabled: boolean;
     favorite: boolean;
     addedAt: string;
     status: IdeaStatus;

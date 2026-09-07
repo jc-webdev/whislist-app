@@ -38,6 +38,7 @@ type GiftIdeaRow = {
     status: IdeaStatus | null;
     archived_at: string | null;
     visible_to_all: boolean | null;
+    reservations_enabled: boolean | null;
 };
 
 type ReservationStatus = { reserved: boolean; byMe: boolean };
@@ -298,7 +299,6 @@ type ParsedRoute =
     | { screen: "detail"; owner: "mine"; ideaId: string }
     | { screen: "people" }
     | { screen: "add-friend" }
-    | { screen: "friend-requests" }
     | { screen: "people-profile"; friendId: string }
     | { screen: "friend-list"; friendId: string }
     | { screen: "detail"; owner: "friend"; friendId: string; ideaId: string }
@@ -328,7 +328,9 @@ function parseRoute(pathname: string): ParsedRoute {
     }
     if (segments[0] === "people" && segments.length === 1) return { screen: "people" };
     if (segments[0] === "people" && segments.length === 2 && segments[1] === "add") return { screen: "add-friend" };
-    if (segments[0] === "people" && segments.length === 2 && segments[1] === "requests") return { screen: "friend-requests" };
+    // Stary URL zaproszeń — zaproszenia żyją teraz wyłącznie jako zakładka
+    // wspólnego ekranu Powiadomienia, nie osobny ekran.
+    if (segments[0] === "people" && segments.length === 2 && segments[1] === "requests") return { screen: "notifications" };
     if (segments[0] === "people" && segments.length === 3 && segments[2] === "suggest") {
         return { screen: "suggest-idea", friendId: segments[1] };
     }
@@ -793,7 +795,7 @@ export function AppShell() {
     const routePollId = route.screen === "poll-detail" ? route.pollId : null;
 
     const activeNavIndex =
-        screen === "ideas" ? 0 : screen === "people" || screen === "people-profile" || screen === "friend-requests" ? 1 : screen === "gifts" ? 2 : screen === "profile" ? 3 : null;
+        screen === "ideas" ? 0 : screen === "people" || screen === "people-profile" ? 1 : screen === "gifts" ? 2 : screen === "profile" ? 3 : null;
 
     const goBack = () => {
         if (typeof window !== "undefined" && window.history.length > 1) {
@@ -1150,6 +1152,7 @@ export function AppShell() {
         priority: (row.priority ?? "chce") as Priority,
         visibility: liveIdeaVisibility.filter((v) => v.idea_id === row.id).map((v) => v.group_id),
         visibleToAll: Boolean(row.visible_to_all),
+        reservationsEnabled: row.reservations_enabled ?? true,
         favorite: Boolean(row.favorite),
         addedAt: row.created_at ? new Date(row.created_at).toLocaleDateString("pl-PL") : "nowo",
         status: row.status === "archived" ? "archived" : "active",
@@ -1412,6 +1415,7 @@ export function AppShell() {
                 priority: idea.priority,
                 visibility: idea.visibility,
                 visibleToAll: idea.visibleToAll,
+                reservationsEnabled: idea.reservationsEnabled,
                 imageUrl: idea.image,
                 imageFile: null,
             };
@@ -1424,7 +1428,8 @@ export function AppShell() {
             comment: "",
             priority: "chce",
             visibility: [],
-            visibleToAll: false,
+            visibleToAll: true,
+            reservationsEnabled: true,
             imageUrl: null,
             imageFile: null,
         };
@@ -1441,7 +1446,13 @@ export function AppShell() {
     const goToIdeaDetail = (ideaId: string) => router.push(`/ideas/${ideaId}`);
     const goToPeople = () => router.replace("/people");
     const goToAddFriend = () => router.push("/people/add");
-    const goToFriendRequests = () => router.push("/people/requests");
+    // Powiadomienia to jeden wspólny moduł dostępny z każdego widoku (nie
+    // osobny ekran per zakładka) — dzwoneczek na "Ludzie" prowadzi do tego
+    // samego ekranu co wszędzie indziej, tylko od razu na zakładce Zaproszenia.
+    const goToFriendRequests = () => {
+        setNotificationsTab("zaproszenia");
+        router.push("/notifications");
+    };
     const goToPersonProfile = (personId: string) => router.push(`/people/${personId}`);
     const goToPersonIdeas = (personId: string) => router.push(`/people/${personId}/ideas`);
     const goToFriendIdeaDetail = (personId: string, ideaId: string) => router.push(`/people/${personId}/ideas/${ideaId}`);
@@ -1487,6 +1498,7 @@ export function AppShell() {
             price: values.price ? Number(values.price) : null,
             priority: values.priority,
             visible_to_all: values.visibleToAll,
+            reservations_enabled: values.reservationsEnabled,
             image_url: imageUrl,
         };
 
@@ -1762,6 +1774,7 @@ export function AppShell() {
     // (dokładnie tak samo jak w polityce RLS gift_reservations_insert_not_owner).
     const selectedIdeaOwnerAllowsReservations = useMemo(() => {
         if (detailOwner !== "friend" || !selectedIdea) return true;
+        if (!selectedIdea.reservationsEnabled) return false;
         const ownerProfile = liveProfiles.find((profile) => profile.id === selectedIdea.ownerId);
         if (ownerProfile && !ownerProfile.reservations_enabled) return false;
         if (selectedIdea.visibleToAll) return true;
@@ -2686,7 +2699,8 @@ export function AppShell() {
                         comment: "",
                         priority,
                         visibility: [],
-                        visibleToAll: false,
+                        visibleToAll: true,
+                        reservationsEnabled: true,
                         imageUrl: null,
                         imageFile: null,
                     });
@@ -2756,14 +2770,6 @@ export function AppShell() {
                                             Ja
                                         </button>
                                     </div>
-                                </>
-                            ) : screen === "friend-requests" ? (
-                                <>
-                                    <div>
-                                        <div className="eyebrow">Ludzie</div>
-                                        <h1>Zaproszenia</h1>
-                                    </div>
-                                    <BackButton onClick={goBack} />
                                 </>
                             ) : screen === "add-friend" ? (
                                 <>
@@ -3135,16 +3141,6 @@ export function AppShell() {
                             />
                         ) : null}
 
-                        {screen === "friend-requests" ? (
-                            <FriendRequestsScreen
-                                incoming={pendingIncomingRequests}
-                                outgoing={pendingOutgoingRequests}
-                                onAccept={(requestId, senderId) => void acceptFriendRequest(requestId, senderId)}
-                                onDecline={(requestId) => void cancelFriendRequest(requestId)}
-                                onCancel={(requestId) => void cancelFriendRequest(requestId)}
-                            />
-                        ) : null}
-
                         {screen === "people-profile" ? (
                             <ProfileScreen
                                 friend={selectedFriend}
@@ -3253,7 +3249,7 @@ export function AppShell() {
                             <span>✦</span>
                             <small>Pomysły</small>
                         </button>
-                        <button className={screen === "people" || screen === "people-profile" || screen === "friend-requests" ? "nav-item active" : "nav-item"} onClick={goToPeople}>
+                        <button className={screen === "people" || screen === "people-profile" ? "nav-item active" : "nav-item"} onClick={goToPeople}>
                             <span className="nav-icon-wrap">
                                 ◍
                                 {pendingIncomingRequests.length > 0 ? <span className="nav-dot" /> : null}
@@ -3425,6 +3421,7 @@ type NewIdeaForm = {
     priority: Priority;
     visibility: string[];
     visibleToAll: boolean;
+    reservationsEnabled: boolean;
     imageUrl: string | null;
     imageFile: File | null;
 };
@@ -3620,6 +3617,22 @@ function AddIdeaScreen({
                 {groups.length === 0 ? (
                     <p className="muted small">Nie masz jeszcze żadnych grup — pomysł będzie widoczny tylko dla Ciebie. Grupy założysz w zakładce Ludzie.</p>
                 ) : null}
+            </div>
+
+            <div className="field-group">
+                <div className="toggle-row">
+                    <span>Można rezerwować ten pomysł</span>
+                    <button
+                        className={newIdea.reservationsEnabled ? "toggle on" : "toggle"}
+                        onClick={() => setNewIdea({ ...newIdea, reservationsEnabled: !newIdea.reservationsEnabled })}
+                    >
+                        {newIdea.reservationsEnabled ? "Włączone" : "Wyłączone"}
+                    </button>
+                </div>
+                <p className="muted small">
+                    Niezależnie od globalnego przełącznika w profilu i ustawień grupy — wyłącz, jeśli akurat ten
+                    konkretny pomysł nie powinien dać się zarezerwować.
+                </p>
             </div>
 
             {error ? <div className="error-box">{error}</div> : null}
@@ -4844,65 +4857,6 @@ function AddFriendScreen({
     );
 }
 
-function FriendRequestsScreen({
-    incoming,
-    outgoing,
-    onAccept,
-    onDecline,
-    onCancel,
-}: {
-    incoming: Array<{ requestId: string; id: string; name: string; avatar: string | null }>;
-    outgoing: Array<{ requestId: string; id: string; name: string; avatar: string | null }>;
-    onAccept: (requestId: string, senderId: string) => void;
-    onDecline: (requestId: string) => void;
-    onCancel: (requestId: string) => void;
-}) {
-    return (
-        <div className="stack">
-            <div className="card body-card">
-                <h3>Otrzymane zaproszenia</h3>
-                {incoming.length === 0 ? (
-                    <p className="muted small">Nikt jeszcze nie zaprosił Cię do znajomych.</p>
-                ) : (
-                    <div className="stack small-stack">
-                        {incoming.map((request) => (
-                            <div className="person-row" key={request.requestId}>
-                                <Avatar id={request.id} name={request.name} avatarUrl={request.avatar} size="medium" />
-                                <div className="person-meta">
-                                    <strong>{request.name}</strong>
-                                </div>
-                                <div className="chip-row">
-                                    <button className="mini-button" onClick={() => onAccept(request.requestId, request.id)}>Akceptuj</button>
-                                    <button className="ghost-button" onClick={() => onDecline(request.requestId)}>Odrzuć</button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
-
-            <div className="card body-card">
-                <h3>Wysłane zaproszenia</h3>
-                {outgoing.length === 0 ? (
-                    <p className="muted small">Nie masz żadnych oczekujących zaproszeń.</p>
-                ) : (
-                    <div className="stack small-stack">
-                        {outgoing.map((request) => (
-                            <div className="person-row" key={request.requestId}>
-                                <Avatar id={request.id} name={request.name} avatarUrl={request.avatar} size="medium" />
-                                <div className="person-meta">
-                                    <strong>{request.name}</strong>
-                                </div>
-                                <button className="ghost-button" onClick={() => onCancel(request.requestId)}>Cofnij</button>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-}
-
 // ETAP PO MVP 16 — "Znajdź prezent": czysto klienckie zawężanie już
 // wczytanych pomysłów znajomego wg budżetu. Bez rekomendacji/produktów
 // powiązanych — te są celowo odłożone (patrz instrukcja.txt i monetyzacja.txt,
@@ -5291,6 +5245,8 @@ function EditProfileScreen({
                 <button className="primary-button" onClick={() => onSaveProfile({ fullName, city, birthday })}>
                     Zapisz dane
                 </button>
+                {info ? <div className="status positive">{info}</div> : null}
+                {error ? <div className="error-box">{error}</div> : null}
             </div>
 
             <div className="card body-card">
