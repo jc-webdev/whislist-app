@@ -1,0 +1,1506 @@
+PROJEKT: APLIKACJA SPOŁECZNOŚCIOWA DO POMYSŁÓW NA PREZENTY / PRYWATNA KOLEKCJA ŻYCZEŃ
+
+CEL:
+Budujemy darmową dla użytkownika aplikację, w której użytkownik przez cały rok zapisuje rzeczy, które chciałby mieć, kupić albo przeżyć.
+
+Nie jest to klasyczna wishlist, którą użytkownik wysyła znajomym.
+
+Najważniejsza idea:
+Użytkownik zapisuje rzeczy, które mu się podobają, a następnie decyduje, które osoby lub grupy mogą je zobaczyć. Dzięki temu znajomi i rodzina mogą sprawdzić, co użytkownik naprawdę chce dostać, bez konieczności proszenia go o listę prezentów.
+
+Aplikacja ma być:
+- prywatna,
+- społecznościowa,
+- darmowa dla użytkowników,
+- używana przez cały rok,
+- prosta w dodawaniu nowych pomysłów,
+- przydatna szczególnie przed urodzinami, świętami i innymi okazjami,
+- w przyszłości monetyzowana przede wszystkim przez afiliację, rekomendacje produktów i reklamy kontekstowe.
+
+==================================================
+1. NAJWAŻNIEJSZA LOGIKA PRODUKTU
+==================================================
+
+Użytkownik może:
+
+1. Dodać dowolny pomysł:
+   - produkt,
+   - wydarzenie,
+   - koncert,
+   - wyjazd,
+   - doświadczenie,
+   - restaurację,
+   - hobby,
+   - cokolwiek innego.
+
+2. Pomysł może być:
+   - tylko dla mnie,
+   - widoczny dla jednej grupy,
+   - widoczny dla kilku grup.
+
+3. Użytkownik może należeć do wielu grup.
+
+Przykładowe grupy:
+- Rodzina
+- Znajomi
+- Padel
+- Praca
+- konkretna paczka znajomych
+
+4. Ta sama rzecz może być widoczna dla kilku grup jednocześnie.
+
+5. Osoba, która widzi pomysł, może go zarezerwować jako prezent.
+
+6. Właściciel pomysłu NIGDY nie może zobaczyć:
+   - kto zarezerwował prezent,
+   - czy ktoś go zarezerwował,
+   - kto z kim organizuje prezent,
+   - rozmów dotyczących prezentu,
+   - głosowań,
+   - planowania zakupu.
+
+Ma to zachować element niespodzianki.
+
+WAŻNE:
+Prywatność musi być wymuszana po stronie backendu/database/API.
+Nie wystarczy ukrycie danych w frontendzie.
+
+==================================================
+2. GŁÓWNA NAWIGACJA
+==================================================
+
+Bottom navigation:
+
+1. 💭 Pomysły
+2. 👥 Ludzie
+3. 🎁 Prezenty
+4. 👤 Ja
+
+Najważniejszy przycisk w aplikacji:
+
++ Dodaj pomysł
+
+==================================================
+3. LOVABLE — PIERWSZY ETAP
+==================================================
+
+Pierwszy etap projektu powinien koncentrować się WYŁĄCZNIE na UI/UX.
+
+Nie budować jeszcze pełnego backendu.
+
+Prompt do Lovable:
+
+"Zbuduj kompletny, nowoczesny, mobile-first frontend aplikacji społecznościowej do prywatnych wishlist i organizowania prezentów.
+
+Aplikacja nie jest zwykłą wishlistą.
+
+Użytkownik przez cały rok zapisuje rzeczy, które chciałby mieć, kupić lub przeżyć. Każdy pomysł może być prywatny albo widoczny tylko dla wybranych grup znajomych lub rodziny.
+
+Główna nawigacja:
+- Pomysły
+- Ludzie
+- Prezenty
+- Ja
+
+Najważniejszym CTA jest:
++ Dodaj pomysł
+
+Zbuduj kompletne, klikalne widoki:
+
+1. Onboarding
+2. Home / Pomysły
+3. Dodawanie pomysłu
+4. Szczegóły pomysłu
+5. Ludzie
+6. Lista grup
+7. Widok grupy
+8. Profil znajomego
+9. Rezerwacja prezentu
+10. Prezenty
+11. Organizacja prezentu
+12. Czat prezentowy
+13. Ankieta
+14. Profil użytkownika
+15. Ustawienia prywatności
+16. Empty states
+17. Loading states
+18. Error states
+
+Home:
+
+Nagłówek:
+'Co ostatnio wpadło Ci w oko?'
+
+Główne CTA:
+'+ Dodaj pomysł'
+
+Sekcje:
+- Ostatnio dodane
+- Wszystkie pomysły
+- Ulubione
+
+Filtry:
+- Wszystkie
+- 🔥 Bardzo chcę
+- ❤️ Chcę
+- 🤷 Może kiedyś
+- Ulubione
+
+Karty pomysłów powinny zawierać:
+- zdjęcie,
+- nazwę,
+- cenę,
+- sklep,
+- priorytet,
+- informację o widoczności.
+
+Dodawanie pomysłu:
+
+Użytkownik może:
+- wkleić URL,
+- dodać ręcznie,
+- dodać zdjęcie,
+- podać nazwę,
+- cenę,
+- komentarz,
+- priorytet,
+- wybrać grupy, które mogą zobaczyć pomysł.
+
+Widoczność:
+- Tylko ja
+- Rodzina
+- Znajomi
+- Padel
+- możliwość wybrania wielu grup.
+
+Widok znajomego:
+
+Pokazuj:
+- avatar,
+- imię,
+- urodziny,
+- widoczne pomysły,
+- priorytety.
+
+Rezerwacja:
+
+Przycisk:
+'🔒 Zarezerwuj'
+
+Pokaż komunikat:
+'Właściciel pomysłu nie zobaczy, że został zarezerwowany.'
+
+Po rezerwacji:
+'Zarezerwowane przez Ciebie'
+
+Dla innych użytkowników:
+'Ktoś już to rezerwuje'
+
+Właściciel pomysłu nadal widzi normalny produkt bez informacji o rezerwacji.
+
+Prezenty:
+
+Pokaż:
+- nadchodzące urodziny,
+- aktywne organizacje prezentów,
+- zakończone prezenty.
+
+Organizacja prezentu:
+
+Widok zawiera:
+- prezent,
+- cenę,
+- uczestników,
+- zaproszenie innych osób,
+- czat,
+- ankietę.
+
+Czat powinien być kontekstowy i dotyczyć konkretnego prezentu, a nie być pełnym komunikatorem.
+
+Ankieta:
+np.
+'Co kupujemy Kubie?'
+
+Opcje:
+- LEGO
+- AirPods
+- koncert
+
+Profil:
+- imię,
+- avatar,
+- data urodzenia,
+- liczba pomysłów,
+- liczba grup,
+- aktywne prezenty,
+- ustawienia prywatności,
+- usunięcie konta.
+
+DESIGN:
+
+Nowoczesny.
+Premium, ale przyjazny.
+Mobile-first.
+Responsywny.
+Dużo przestrzeni.
+Zaokrąglone karty.
+Atrakcyjne zdjęcia produktów.
+Subtelna hierarchia informacji.
+
+Nie może wyglądać jak:
+- sklep internetowy,
+- Todo lista,
+- aplikacja finansowa.
+
+Ma bardziej przypominać połączenie:
+- prywatnej kolekcji,
+- Pinteresta,
+- aplikacji społecznościowej.
+
+Najważniejsze:
+Dodanie pomysłu powinno być ekstremalnie szybkie — najlepiej 5–10 sekund.
+
+Użyj realistycznych mock danych.
+
+Połącz wszystkie widoki tak, aby aplikację można było przeklikać jak prawdziwy produkt.
+
+Na tym etapie skup się na UI/UX i mock data.
+Backend nie jest wymagany."
+
+==================================================
+4. ETAP 2 — PRZENIESIENIE DO COPILOTA
+==================================================
+
+Po stworzeniu UI w Lovable eksportujemy kod.
+
+Następnie projekt kontynuujemy w Copilocie.
+
+Docelowy stack:
+
+- Next.js
+- React
+- TypeScript
+- PostgreSQL
+- Supabase lub równoważny backend
+- authentication
+- database
+- storage
+- API / server actions
+
+Najważniejsza zasada:
+
+Nie przebudowywać UI od zera.
+
+Zachować design wygenerowany w Lovable i stopniowo podłączać prawdziwą funkcjonalność.
+
+==================================================
+5. ETAP 3 — AUTHENTICATION
+==================================================
+
+Zbudować:
+
+- rejestrację,
+- logowanie,
+- wylogowanie,
+- reset hasła,
+- sesję użytkownika,
+- profil.
+
+User:
+
+id
+name
+avatar
+birthday
+created_at
+
+Na początku można używać email/password.
+
+Social login można dodać później.
+
+==================================================
+6. ETAP 4 — POMYSŁY
+==================================================
+
+Implementujemy prawdziwe CRUD:
+
+CREATE:
+- dodaj pomysł
+
+READ:
+- lista pomysłów
+- szczegóły
+
+UPDATE:
+- edycja
+
+DELETE:
+- usunięcie
+
+Idea:
+
+id
+owner_id
+title
+description
+url
+image_url
+price
+currency
+priority
+created_at
+updated_at
+
+Priorytet:
+
+- bardzo chcę
+- chcę
+- może kiedyś
+
+Dodatkowo:
+- ulubione
+- komentarz
+- link
+
+==================================================
+7. ETAP 5 — AUTOMATYCZNE POBIERANIE INFORMACJI Z LINKU
+==================================================
+
+Jeżeli użytkownik wklei URL:
+
+Backend powinien spróbować pobrać:
+- nazwę produktu,
+- zdjęcie,
+- cenę,
+- sklep,
+- opis.
+
+Docelowo:
+URL
+↓
+metadata extraction
+↓
+title
+↓
+image
+↓
+price
+↓
+merchant
+
+Jeżeli automatyczne pobranie się nie uda:
+pokazujemy formularz ręczny.
+
+To musi działać bardzo szybko.
+
+==================================================
+8. ETAP 6 — GRUPY
+==================================================
+
+Zbudować:
+
+- tworzenie grup,
+- edycję grupy,
+- usuwanie grupy,
+- dołączanie do grupy,
+- zapraszanie,
+- listę członków.
+
+Przykłady:
+
+Rodzina
+Znajomi
+Padel
+Praca
+
+Struktura:
+
+Group:
+id
+name
+owner_id
+created_at
+
+GroupMembership:
+group_id
+user_id
+role
+
+Użytkownik może należeć do wielu grup.
+
+==================================================
+9. ETAP 7 — WIDOCZNOŚĆ POMYSŁÓW
+==================================================
+
+To jeden z najważniejszych elementów całego systemu.
+
+IdeaVisibility:
+
+idea_id
+group_id
+
+Pomysł może być:
+- prywatny,
+- widoczny w jednej grupie,
+- widoczny w wielu grupach.
+
+Przykład:
+
+Idea:
+'Apple Watch'
+
+Widoczna dla:
+- Rodzina
+- Znajomi
+- Padel
+
+Inna idea:
+
+'koncert'
+
+Widoczna tylko:
+- Znajomi
+
+Frontend ma pozwalać łatwo wybrać wiele grup.
+
+Backend musi sprawdzać uprawnienia.
+
+==================================================
+10. ETAP 8 — URODZINY I OKAZJE
+==================================================
+
+Occasion:
+
+id
+owner_id
+name
+date
+group_id
+
+Przykłady:
+- urodziny,
+- święta,
+- rocznica,
+- custom event.
+
+Na początku wystarczą:
+- urodziny,
+- podstawowe custom events.
+
+Aplikacja powinna pokazywać:
+'Kuba ma urodziny za 7 dni.'
+
+==================================================
+11. ETAP 9 — PROFILE ZNAJOMYCH
+==================================================
+
+Po wejściu w profil znajomego:
+
+Pokaż tylko pomysły, które użytkownik ma prawo zobaczyć.
+
+Widok:
+
+Kuba
+🎂 11 lutego
+
+'Co chciałby dostać'
+
+🔥 Bardzo chce
+❤️ Chce
+🤷 Może kiedyś
+
+Nigdy nie pokazuj:
+- prywatnych pomysłów,
+- innych grup,
+- rezerwacji,
+- organizacji prezentów.
+
+==================================================
+12. ETAP 10 — REZERWACJE
+==================================================
+
+GiftReservation:
+
+id
+idea_id
+reserved_by
+created_at
+
+Logika:
+
+Osoba A widzi pomysł.
+
+Klik:
+'🔒 Zarezerwuj'
+
+System zapisuje rezerwację.
+
+Osoba A:
+'Zarezerwowane przez Ciebie'
+
+Osoba B:
+'Ktoś już to rezerwuje'
+
+Właściciel pomysłu:
+NIE WIDZI ŻADNEJ INFORMACJI O REZERWACJI.
+
+BARDZO WAŻNE:
+
+Owner nie może mieć dostępu do reservation data.
+
+Nie wystarczy:
+display:none
+ukrycie komponentu
+ukrycie statusu
+
+Backend/API/database muszą uniemożliwić odczyt tych informacji.
+
+Należy również uważać na:
+- liczby rezerwacji,
+- sortowanie,
+- powiadomienia,
+- zmiany statusu,
+- komunikaty,
+- endpointy API.
+
+Nie można stworzyć bocznego kanału, przez który właściciel dowie się o prezencie.
+
+==================================================
+13. ETAP 11 — MVP
+==================================================
+
+MVP powinno zawierać:
+
+AUTH:
+- rejestracja
+- logowanie
+- profil
+
+IDEAS:
+- dodawanie
+- edycja
+- usuwanie
+- link
+- zdjęcie
+- nazwa
+- cena
+- priorytet
+- komentarz
+
+GROUPS:
+- tworzenie
+- dołączanie
+- zapraszanie
+- członkowie
+
+VISIBILITY:
+- prywatne
+- wybrane grupy
+- wiele grup
+
+OCCASIONS:
+- urodziny
+- podstawowe wydarzenia
+
+GIFTS:
+- przeglądanie pomysłów znajomych
+- rezerwacja
+- ukrywanie rezerwacji przed właścicielem
+
+NOTIFICATIONS:
+- zaproszenie do grupy
+- nadchodzące urodziny
+- podstawowe informacje o prezentach
+
+NIE ROBIĆ JESZCZE:
+
+- pełnego czatu,
+- płatności,
+- split payments,
+- AI,
+- zaawansowanych rekomendacji,
+- marketplace,
+- zaawansowanego systemu reklam.
+
+==================================================
+14. WALIDACJA MVP
+==================================================
+
+Najważniejsza hipoteza:
+
+'CZY LUDZIE BĘDĄ DODAWAĆ RZECZY PRZEZ CAŁY ROK I CZY ICH ZNAJOMI BĘDĄ Z TEGO KORZYSTAĆ PRZY KUPOWANIU PREZENTÓW?'
+
+Kluczowy flow:
+
+1. Użytkownik widzi coś ciekawego.
+2. Dodaje pomysł.
+3. Wybiera grupę.
+4. Wraca później.
+5. Dodaje kolejne rzeczy.
+6. Zaprasza znajomych.
+7. Znajomy otwiera profil.
+8. Znajomy znajduje prezent.
+9. Rezerwuje go.
+10. Właściciel niczego się nie dowiaduje.
+
+Jeżeli ten flow działa i ludzie faktycznie dodają rzeczy oraz kupują na podstawie aplikacji, produkt ma sens.
+
+==================================================
+15. ETAP PO MVP — PODRZUĆ POMYSŁ
+==================================================
+
+Użytkownik może wysłać znajomemu sugestię.
+
+Przykład:
+
+'Wydaje mi się, że Ci się to spodoba.'
+
+Znajomy otrzymuje:
+- zdjęcie,
+- nazwę,
+- link.
+
+Może:
+- dodać do swoich pomysłów,
+- odrzucić.
+
+To tworzy dodatkowy viral loop.
+
+==================================================
+16. ETAP PO MVP — ZNAJDŹ PREZENT
+==================================================
+
+To jedna z najważniejszych funkcji przyszłego produktu.
+
+Użytkownik wybiera:
+
+'Znajdź prezent'
+
+Następnie:
+
+Dla kogo?
+Kuba
+
+Kiedy?
+Urodziny za 7 dni
+
+Budżet:
+do 300 zł
+
+Opcjonalnie:
+- kategoria,
+- liczba osób,
+- grupa.
+
+System pokazuje:
+
+1. Najważniejsze widoczne pomysły Kuby.
+2. Pomysły mieszczące się w budżecie.
+3. Później alternatywne produkty.
+4. Produkty powiązane.
+
+To jest również bardzo dobre miejsce na monetyzację.
+
+==================================================
+17. ETAP PO MVP — WSPÓLNE PREZENTY
+==================================================
+
+GiftPlan:
+
+id
+occasion_id
+idea_id
+created_by
+created_at
+
+GiftParticipant:
+
+gift_plan_id
+user_id
+status
+
+Flow:
+
+Znajomy wybiera prezent.
+
+'Zorganizujcie go razem'
+
+Następnie:
+- zaprasza znajomych,
+- pokazuje cenę,
+- lista uczestników,
+- organizacja prezentu.
+
+Później:
+- podział kosztów,
+- śledzenie wpłat,
+- płatności.
+
+Nie implementować płatności na początku.
+
+==================================================
+18. ETAP PO MVP — CZAT
+==================================================
+
+Nie budować drugiego Messengera.
+
+Czat ma być przypisany do konkretnego prezentu.
+
+Przykład:
+
+🎁 Prezent dla Kuby
+Sony WH-1000XM6
+1499 zł
+
+[chat]
+
+'Ja mogę kupić.'
+'To może składamy się po 100 zł?'
+'Ja wchodzę.'
+
+Chat:
+
+ChatMessage:
+id
+gift_plan_id
+sender_id
+message
+created_at
+
+==================================================
+19. ETAP PO MVP — ANKIETY
+==================================================
+
+Poll:
+
+'Co kupujemy Kubie?'
+
+Opcje:
+- LEGO
+- AirPods
+- koncert
+
+PollVote:
+
+poll_id
+user_id
+option_id
+
+Użytkownicy głosują.
+
+Właściciel prezentu nadal niczego nie widzi.
+
+==================================================
+20. PRODUKT A POMYSŁ — BARDZO WAŻNE
+==================================================
+
+Od początku warto oddzielić:
+
+IDEA
+
+od
+
+PRODUCT.
+
+Przykład:
+
+Idea:
+'Te słuchawki chcę od dawna.'
+
+Product:
+Sony WH-1000XM6
+
+Dzięki temu później możemy mieć jeden produkt przypisany do wielu użytkowników.
+
+Product:
+
+id
+name
+brand
+category
+subcategory
+keywords
+image_url
+ean_gtin
+created_at
+
+Idea:
+
+id
+owner_id
+product_id
+title
+description
+url
+price
+currency
+priority
+created_at
+
+To będzie bardzo ważne dla przyszłej monetyzacji.
+
+==================================================
+21. KATALOG PRODUKTÓW
+==================================================
+
+W przyszłości tworzymy własny katalog produktów.
+
+Każdy produkt może mieć:
+
+- nazwę,
+- markę,
+- kategorię,
+- podkategorię,
+- słowa kluczowe,
+- zdjęcie,
+- EAN/GTIN,
+- sklepy,
+- ceny.
+
+Przykład:
+
+Sony WH-1000XM6
+
+brand:
+Sony
+
+category:
+Elektronika
+
+subcategory:
+Słuchawki
+
+keywords:
+Sony
+Bluetooth
+ANC
+audio
+wireless
+headphones
+
+==================================================
+22. MERCHANT / SKLEPY
+==================================================
+
+Merchant:
+
+id
+name
+domain
+
+Przykłady:
+- Allegro
+- Amazon
+- Media Expert
+- RTV Euro AGD
+- x-kom
+- Empik
+- Zalando
+- Decathlon
+- Sephora
+
+Nie zakładać konkretnych stawek prowizji bez sprawdzenia aktualnych programów afiliacyjnych.
+
+==================================================
+23. MONETYZACJA — PODSTAWOWA ZASADA
+==================================================
+
+APLIKACJA MA BYĆ DARMOWA DLA UŻYTKOWNIKA.
+
+Nie chcemy:
+- abonamentu,
+- paywalla,
+- płatnej wishlisty.
+
+Monetyzacja powinna odbywać się po stronie zakupów i reklam.
+
+Najpierw:
+
+AFFILIATE
+
+Później:
+
+SPONSORED PRODUCTS
+
+Jeszcze później:
+
+CONTEXTUAL ADS
+
+Na końcu:
+
+DIRECT BRAND CAMPAIGNS / WŁASNY AD ENGINE
+
+==================================================
+24. DLACZEGO TEN MODEL MA SENS
+==================================================
+
+Aplikacja ma bardzo ciekawy sygnał intencji zakupowej.
+
+Użytkownik sam mówi:
+
+'CHCĘ TO.'
+
+To jest dużo mocniejszy sygnał niż zwykłe przeglądanie internetu.
+
+Przykład:
+
+Użytkownik zapisuje:
+
+Apple Watch
+AirPods
+MacBook
+iPhone
+
+System może wywnioskować zainteresowanie:
+
+Apple: 0.94
+electronics: 0.91
+smart devices: 0.83
+audio: 0.72
+fitness: 0.41
+
+Nie trzeba sprzedawać danych osobowych.
+
+System może wykorzystać kontekst do dopasowania ofert.
+
+==================================================
+25. INTENT ENGINE
+==================================================
+
+Docelowo:
+
+IDEAS
+↓
+PRODUCTS
+↓
+BRANDS
+↓
+CATEGORIES
+↓
+KEYWORDS
+↓
+USER INTENT
+↓
+OFFER MATCHING
+
+Przykład:
+
+Apple Watch
+→ Apple
+→ smart devices
+→ wearables
+→ fitness
+→ electronics
+
+Dzięki temu możemy pokazywać odpowiednie produkty.
+
+==================================================
+26. AD OFFER
+==================================================
+
+AdOffer:
+
+id
+product_id
+merchant_id
+affiliate_url
+image
+title
+price
+commission
+sponsored
+active
+
+System może znaleźć najlepszą ofertę.
+
+Przykład:
+
+Sony WH-1000XM6
+
+Sklep A:
+1499 zł
+
+Sklep B:
+1399 zł
+
+Sklep C:
+1389 zł
+
+Pokazujemy:
+
+'Znaleźliśmy tę rzecz taniej'
+
+Użytkownik dostaje realną wartość.
+
+Klik:
+→ sklep
+
+Zakup:
+→ prowizja afiliacyjna.
+
+==================================================
+27. REKOMENDACJE
+==================================================
+
+Sekcja:
+
+'✨ Może Ci się spodobać'
+
+lub:
+
+'💡 Dla Ciebie'
+
+Pokazujemy produkty powiązane z zainteresowaniami użytkownika.
+
+Rekomendacje powinny być:
+- kontekstowe,
+- subtelne,
+- użyteczne.
+
+Nie spamować użytkownika.
+
+==================================================
+28. REKLAMY
+==================================================
+
+NIE:
+
+- popupy,
+- fullscreen,
+- reklama co kilka elementów,
+- agresywne bannery.
+
+TAK:
+
+- natywne rekomendacje,
+- sponsorowane produkty,
+- rekomendacje powiązane z wishlistą.
+
+Każda płatna promocja musi być jasno oznaczona jako sponsorowana.
+
+==================================================
+29. NAJLEPSZE MIEJSCE NA MONETYZACJĘ
+==================================================
+
+'Znajdź prezent'
+
+Przykład:
+
+Prezent dla Kuby
+Budżet: 300 zł
+
+Najpierw:
+
+Pomysły Kuby
+
+Potem:
+
+'💡 Może też Ci się spodobać'
+
+Produkty:
+- alternatywa,
+- tańszy odpowiednik,
+- podobny produkt,
+- produkt sponsorowany.
+
+To jest naturalny moment zakupowy.
+
+Użytkownik już chce coś kupić.
+
+==================================================
+30. SEGMENTACJA DLA REKLAM
+==================================================
+
+Możemy tworzyć kontekst:
+
+electronics
+gaming
+sports
+fashion
+travel
+fitness
+home
+beauty
+etc.
+
+Na podstawie pomysłów użytkownika.
+
+Nie musimy przekazywać reklamodawcom danych osobowych.
+
+System sam wykonuje:
+
+USER
+↓
+CONTEXT
+↓
+TAGS
+↓
+INTENT
+↓
+MATCHING
+↓
+OFFER
+↓
+CLICK
+↓
+PURCHASE
+↓
+REVENUE
+
+==================================================
+31. POTENCJALNY MODEL PRZYCHODÓW
+==================================================
+
+To jest wyłącznie scenariusz matematyczny, NIE prognoza.
+
+100 000 MAU
+
+× 20 sesji miesięcznie
+
+× 2 ekspozycje rekomendacji
+
+=
+
+4 000 000 ekspozycji
+
+CTR 2%
+
+=
+
+80 000 kliknięć
+
+5% click → purchase
+
+=
+
+4 000 zakupów
+
+Średni koszyk:
+500 zł
+
+=
+
+2 000 000 zł GMV
+
+Przy 3% prowizji:
+
+≈ 60 000 zł miesięcznie
+
+Rzeczywiste wyniki będą zależeć m.in. od:
+- aktywności użytkowników,
+- CTR,
+- konwersji,
+- kategorii,
+- wartości koszyka,
+- stawek afiliacyjnych,
+- merchantów.
+
+==================================================
+32. DŁUGOTERMINOWY FLYWHEEL
+==================================================
+
+Więcej użytkowników
+↓
+Więcej pomysłów
+↓
+Więcej produktów
+↓
+Więcej kategorii
+↓
+Lepsze dane kontekstowe
+↓
+Lepsze rekomendacje
+↓
+Więcej kliknięć
+↓
+Więcej zakupów
+↓
+Większy przychód
+↓
+Lepsze oferty dla użytkowników
+↓
+Więcej użytkowników
+
+==================================================
+33. KOLEJNOŚĆ IMPLEMENTACJI
+==================================================
+
+PHASE 1
+LOVABLE UI
+
+- wszystkie ekrany
+- mock data
+- pełna nawigacja
+- responsywność
+- design
+
+↓
+
+PHASE 2
+SETUP
+
+- eksport z Lovable
+- Next.js
+- TypeScript
+- Supabase/PostgreSQL
+- konfiguracja środowiska
+
+↓
+
+PHASE 3
+AUTH
+
+- login
+- register
+- profile
+- sessions
+
+↓
+
+PHASE 4
+IDEAS
+
+- CRUD
+- images
+- URLs
+- priority
+- comments
+
+↓
+
+PHASE 5
+URL METADATA
+
+- title
+- image
+- price
+- merchant
+
+↓
+
+PHASE 6
+GROUPS
+
+- create
+- join
+- invite
+- members
+
+↓
+
+PHASE 7
+VISIBILITY
+
+- private
+- groups
+- multi-group
+
+↓
+
+PHASE 8
+OCCASIONS
+
+- birthdays
+- events
+- reminders
+
+↓
+
+PHASE 9
+FRIEND PROFILES
+
+- visible ideas
+- priorities
+- occasions
+
+↓
+
+PHASE 10
+RESERVATIONS
+
+- reserve
+- prevent duplicate
+- hide from owner
+- backend security
+
+↓
+
+PHASE 11
+NOTIFICATIONS
+
+- invitations
+- birthdays
+- gifts
+
+↓
+
+PHASE 12
+MVP TEST
+
+Test real users.
+
+Nie dodawać nowych dużych funkcji dopóki nie sprawdzimy:
+- czy ludzie dodają pomysły,
+- czy wracają,
+- czy zapraszają znajomych,
+- czy znajomi oglądają pomysły,
+- czy ktoś faktycznie rezerwuje prezenty.
+
+==================================================
+34. PO MVP
+==================================================
+
+PHASE 13
+Podrzuć pomysł
+
+↓
+
+PHASE 14
+Znajdź prezent
+
+↓
+
+PHASE 15
+Group gifts
+
+↓
+
+PHASE 16
+Chat
+
+↓
+
+PHASE 17
+Polls
+
+↓
+
+PHASE 18
+Product catalog
+
+↓
+
+PHASE 19
+Intent engine
+
+↓
+
+PHASE 20
+Affiliate links
+
+↓
+
+PHASE 21
+Price comparison
+
+↓
+
+PHASE 22
+Sponsored products
+
+↓
+
+PHASE 23
+Contextual advertising
+
+↓
+
+PHASE 24
+Advertiser dashboard
+
+↓
+
+PHASE 25
+Advanced ad engine
+
+==================================================
+35. NAJWAŻNIEJSZE ZASADY TECHNICZNE
+==================================================
+
+1. Privacy first.
+
+2. Owner nie może odczytać reservation data.
+
+3. Każdy użytkownik może należeć do wielu grup.
+
+4. Każdy pomysł może być widoczny dla wielu grup.
+
+5. Idea i Product są osobnymi obiektami.
+
+6. Od początku zapisujemy:
+   - brand,
+   - category,
+   - subcategory,
+   - keywords.
+
+7. Nie budujemy monetyzacji przed potwierdzeniem podstawowego zachowania użytkowników.
+
+8. Nie budujemy ogromnego backendu przed MVP.
+
+9. Nie budujemy pełnego Messengera.
+
+10. Nie budujemy płatności przed sprawdzeniem, czy ludzie faktycznie organizują wspólne prezenty.
+
+11. Nie sprzedajemy reklamodawcom danych osobowych użytkowników.
+
+12. System sam dopasowuje reklamy/rekomendacje do kontekstu.
+
+13. Reklamy muszą być użyteczne.
+
+14. UX jest ważniejszy niż maksymalizacja liczby reklam.
+
+==================================================
+36. FINALNA WIZJA PRODUKTU
+==================================================
+
+Aplikacja zaczyna się jako:
+
+'Zapisuję rzeczy, które chcę dostać.'
+
+Ale docelowo staje się:
+
+PRYWATNĄ SPOŁECZNOŚCIOWĄ SIECIĄ PREZENTOWĄ.
+
+Użytkownik:
+
+Zapisuje pomysły
+↓
+Dodaje je przez cały rok
+↓
+Udostępnia je odpowiednim ludziom
+↓
+Znajomi widzą, co naprawdę chce
+↓
+Znajomi rezerwują
+↓
+Grupy organizują prezenty
+↓
+Znajomi mogą wspólnie kupować
+↓
+System pomaga znaleźć prezent
+↓
+System pokazuje odpowiednie produkty
+↓
+Zakup odbywa się przez sklep
+↓
+Aplikacja zarabia na afiliacji
+↓
+Marki mogą później promować produkty
+↓
+Użytkownik nadal korzysta za darmo.
+
+Najważniejsze pozycjonowanie:
+
+'Powiedz swoim ludziom, co Ci się podoba — bez proszenia ich o prezent.'
+
+Alternatywnie:
+
+'Zapisuj rzeczy, które chcesz. Resztą zajmą się Twoi ludzie.'
+
+Najważniejsze jest jednak zachowanie prostoty:
+
+ZOBACZ → ZAPISZ → PODZIEL SIĘ → ZNAJDŹ PREZENT → ZAREZERWUJ → KUP
+
+Nie budować wszystkiego od razu.
+
+Najpierw sprawdzić, czy ludzie naprawdę chcą używać produktu.

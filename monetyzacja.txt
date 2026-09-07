@@ -1,0 +1,179 @@
+WIZJA MONETYZACJI — WIDOCZEK
+============================
+Data ustalenia: 2026-09-06
+Status: wizja docelowa, NIE do wdrożenia teraz. Patrz sekcja "Kiedy zaczynamy".
+
+==================================================
+0. NAJWAŻNIEJSZE ZAŁOŻENIE
+==================================================
+
+APLIKACJA MA BYĆ DARMOWA DLA UŻYTKOWNIKÓW. Zawsze.
+
+- Brak abonamentu.
+- Brak paywalla na podstawowe funkcje.
+- Monetyzacja opiera się na produktach, które użytkownicy sami zapisują,
+  i na intencji zakupowej, którą przy tym ujawniają — nie na opłatach
+  pobieranych od użytkownika.
+
+Zasada nadrzędna dla każdej przyszłej funkcji związanej z zakupami:
+
+    Użytkownik dostaje lepszy produkt
+    → łatwiej znajduje prezent
+    → może znaleźć lepszą cenę
+    → sklep dostaje klienta
+    → marka dostaje sprzedaż
+    → aplikacja dostaje prowizję.
+
+Monetyzacja nigdy nie może odbierać użytkownikowi wartości. Jeśli jakaś
+funkcja reklamowa/zakupowa pogarsza doświadczenie użytkownika, jest
+zaprojektowana źle — niezależnie od tego, ile przychodu generuje.
+
+==================================================
+1. DLACZEGO TEN MODEL MA SENS
+==================================================
+
+Użytkownik zapisując pomysł (Apple Watch, AirPods, MacBook, buty Nike,
+LEGO, słuchawki Sony...) sam mówi: "TAK, CHCĘ TO MIEĆ."
+
+To dużo mocniejszy, bardziej wartościowy sygnał intencji zakupowej niż
+zwykłe przeglądanie internetu czy kliknięcie w baner. Nie trzeba w tym celu
+sprzedawać danych osobowych — wystarczy sam kontekst zapisanych pomysłów.
+
+==================================================
+2. GŁÓWNY MODEL — AFILIACJA
+==================================================
+
+Gdy użytkownik (albo jego znajomy) znajdzie w aplikacji konkretny produkt,
+umożliwiamy przejście do sklepu.
+
+Przykład:
+
+    Sony WH-1000XM6
+    Najlepsze znalezione oferty:
+    - Sklep A — 1499 zł
+    - Sklep B — 1449 zł
+    - Sklep C — 1399 zł
+    [ Kup ]
+
+Jeśli użytkownik przejdzie do sklepu i kupi produkt, aplikacja może
+otrzymać prowizję afiliacyjną. Dla użytkownika to korzyść samo w sobie:
+łatwiejszy zakup, ewentualnie lepsza cena.
+
+To jest GŁÓWNY, pierwszy filar monetyzacji — pozostałe modele są wobec
+niego dodatkowe/uzupełniające.
+
+==================================================
+3. DRUGI MODEL — REKOMENDACJE PRODUKTÓW
+==================================================
+
+Na podstawie zapisanych pomysłów aplikacja wnioskuje zainteresowania
+(np. Apple Watch + AirPods + iPhone + MacBook → Apple, elektronika,
+urządzenia smart, akcesoria, technologia) i pokazuje:
+
+    "✨ Może Ci się spodobać"
+
+z dopasowanymi produktami.
+
+Wymóg jakościowy: to ma wyglądać jak trafna rekomendacja, nie jak
+reklama. Jeśli użytkownik odbiera to jako reklamę, model nie działa
+poprawnie.
+
+==================================================
+4. TRZECI MODEL — „ZNAJDŹ PREZENT" (prawdopodobnie najważniejszy)
+==================================================
+
+Przykład:
+
+    "Kuba ma urodziny za 7 dni 🎂" → [Znajdź prezent]
+
+Kolejność pokazywania:
+1. Rzeczy, które Kuba sam zapisał (zawsze najpierw — to esencja produktu).
+2. Później, jako rozszerzenie: produkty w danym budżecie, produkty
+   podobne, tańsze alternatywy, produkty z konkretnych sklepów,
+   rekomendacje, produkty sponsorowane.
+
+Dlaczego to najsilniejszy moment zakupowy w całej aplikacji:
+
+    OSOBA CHCE KUPIĆ PREZENT
+    → WIEMY DLA KOGO
+    → WIEMY, CO TA OSOBA CHCE
+    → WIEMY, JAKI MOŻE BYĆ BUDŻET
+    → MOŻEMY POKAZAĆ ODPOWIEDNIE PRODUKTY
+
+To dużo bardziej wartościowe niż przypadkowa reklama banerowa — user jest
+w trybie "chcę teraz coś kupić", a my wiemy dokładnie dla kogo i orientacyjnie
+w jakim budżecie.
+
+==================================================
+5. CZWARTY MODEL — PRODUKTY SPONSOROWANE
+==================================================
+
+W dalszej przyszłości marki/sklepy mogą płacić za pojawienie się w
+odpowiednich, kontekstowych miejscach (np. przy szukaniu prezentu dla
+osoby zainteresowanej sportem).
+
+Zasady:
+- Produkt sponsorowany musi być WYRAŹNIE oznaczony jako sponsorowany.
+- Musi być kontekstowo dopasowany, nie losowy.
+- Nigdy: popupy, fullscreen reklamy, agresywne bannery, reklama co kilka
+  elementów, cokolwiek psujące podstawowe doświadczenie.
+
+==================================================
+6. DŁUGOTERMINOWY MECHANIZM (docelowy, nie do budowania teraz)
+==================================================
+
+    POMYSŁY UŻYTKOWNIKA
+    ↓
+    ZAINTERESOWANIA / KATEGORIE
+    ↓
+    INTENCJA ZAKUPOWA
+    ↓
+    ODPOWIEDNIE PRODUKTY
+    ↓
+    OFERTY SKLEPÓW
+    ↓
+    KLIKNIĘCIE
+    ↓
+    ZAKUP
+    ↓
+    PRZYCHÓD DLA APLIKACJI
+
+==================================================
+7. KIEDY ZACZYNAMY — KOLEJNOŚĆ WDRAŻANIA
+==================================================
+
+1. Darmowa aplikacja + podstawowy system pomysłów i znajomych (obecny etap).
+2. „Znajdź prezent".
+3. Linki do sklepów / afiliacja.
+4. Porównywanie ofert i znajdowanie tańszych produktów.
+5. Rekomendacje produktów.
+6. Sponsorowane produkty.
+7. Dopiero na końcu: bardziej zaawansowany, samodzielny system reklamowy.
+
+Nic z powyższego NIE jest budowane teraz. MVP ma najpierw udowodnić, że
+ludzie:
+1. dodają pomysły,
+2. wracają do aplikacji,
+3. zapraszają znajomych,
+4. przeglądają pomysły innych,
+5. faktycznie wykorzystują aplikację do kupowania prezentów.
+
+Dopiero gdy ten mechanizm zacznie działać (real users, nie założenia),
+dokładamy monetyzację — w kolejności jak wyżej.
+
+==================================================
+8. CO TO OZNACZA DLA DECYZJI TECHNICZNYCH JUŻ TERAZ
+==================================================
+
+Rzeczy, o których warto pamiętać projektując bieżące funkcje, żeby nie
+zamykać sobie drogi do powyższego (bez budowania tego przedwcześnie):
+
+- Idea i Product to docelowo osobne byty (patrz instrukcja.txt sekcja 20)
+  — jeden produkt może być przypisany do wielu użytkowników/pomysłów.
+  Obecnie `gift_ideas` nie ma jeszcze osobnej tabeli `products` — to
+  świadomie odłożone, nie wprowadzać przedwcześnie bez realnej potrzeby.
+- Pole `category` na `gift_ideas` jest już w schemacie (nullable) jako
+  zaczątek pod przyszłą kategoryzację/intent engine — formularz go jeszcze
+  nie zbiera, i to jest OK na tym etapie.
+- „Znajdź prezent" (punkt 2 powyżej) to najbliższy krok monetyzacyjny po
+  okrzepnięciu MVP — warto go traktować priorytetowo względem reszty.

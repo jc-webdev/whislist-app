@@ -1,0 +1,18 @@
+{
+  "name": "supabase",
+  "version": "1.0.0",
+  "description": "1. Utwórz nowy projekt w Supabase. 2. Skopiuj URL i klucze do plików `.env`. 3. Zastosuj schemat: `supabase db push` albo uruchom SQL z [schema.sql](schema.sql). 4. Uruchom skrypt demo:",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.115.0"
+  }
+}
