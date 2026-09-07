@@ -968,7 +968,14 @@ export function AppShell() {
             // przez InviteScreen) — odzyskujemy je tutaj, bo to jedyne miejsce, przez
             // które przechodzi KAŻDA droga do posiadania sesji (świeża rejestracja,
             // potwierdzenie e-mail w innej karcie, zwykłe logowanie).
-            const pendingCode = typeof window !== "undefined" ? window.localStorage.getItem(PENDING_INVITE_KEY) : null;
+            // routeInviteCode (z URL-a) ma pierwszeństwo przed localStorage: gdy
+            // rejestracja wymaga potwierdzenia e-mailem, link z maila otwiera się
+            // często w INNYM kontekście przeglądarki (inna karta/aplikacja pocztowa)
+            // bez dostępu do localStorage z karty, w której ktoś się rejestrował —
+            // dlatego onRegister ustawia emailRedirectTo z powrotem na /invite/{code},
+            // żeby kod zaproszenia przetrwał w samym URL-u, nie tylko w localStorage.
+            const pendingCode =
+                routeInviteCode ?? (typeof window !== "undefined" ? window.localStorage.getItem(PENDING_INVITE_KEY) : null);
             if (pendingCode) {
                 window.localStorage.removeItem(PENDING_INVITE_KEY);
                 const accepted = await tryAcceptInvite(pendingCode, currentSession.user.id);
@@ -1025,11 +1032,11 @@ export function AppShell() {
                     id: profile.id,
                     name: profile.full_name,
                     avatar: profile.avatar_url,
-                    birthday: profile.birthday ?? mockMe.birthday,
+                    birthday: profile.birthday ?? "",
                     birthdayIn: 0,
                     relation: "Ja",
                     groups: ["rodzina"],
-                    city: profile.city ?? mockMe.city,
+                    city: profile.city ?? "",
                 } as Person;
             }
         }
@@ -1909,10 +1916,19 @@ export function AppShell() {
             return;
         }
 
+        // Link potwierdzający e-mail często otwiera się w innej karcie/aplikacji
+        // niż ta, w której ktoś się rejestrował — emailRedirectTo z kodem
+        // zaproszenia w URL-u przetrwa to przejście, w przeciwieństwie do
+        // localStorage (patrz komentarz przy pendingCode w loadSession).
+        const emailRedirectTo =
+            typeof window !== "undefined"
+                ? `${window.location.origin}${routeInviteCode ? `/invite/${routeInviteCode}` : ""}`
+                : undefined;
+
         const { data, error } = await supabase.auth.signUp({
             email,
             password,
-            options: { data: { full_name: fullName } },
+            options: { data: { full_name: fullName }, emailRedirectTo },
         });
 
         if (error) {

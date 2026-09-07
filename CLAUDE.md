@@ -335,6 +335,41 @@ W `gift-glimpse-next/`:
 - Architektura tego projektu (persistent client shell, `loadSession` raz na
   sesję) oznacza, że dane innego użytkownika (np. ktoś dodał Cię do grupy,
   wysłał zaproszenie) nie pojawią się bez odświeżenia/relogowania, **chyba
-  że jest to jawnie objęte Supabase Realtime** (jak `notifications` i
-  `friend_requests`) — pamiętaj o tym ograniczeniu przy każdej nowej
-  funkcji społecznościowej.
+  że jest to jawnie objęte Supabase Realtime** (patrz `notifications-${userId}`
+  channel w AppShell — subskrybuje teraz notifications/friend_requests/
+  idea_suggestions/gift_plan_participants/polls/poll_options/poll_votes) —
+  pamiętaj o tym ograniczeniu przy każdej nowej funkcji społecznościowej i
+  DODAJ subskrypcję od razu, zamiast czekać, aż ktoś zgłosi "widzę
+  powiadomienie, ale treść jest pusta" (dokładnie tak wyszła ta luka na
+  jaw — zgłoszona przez pierwszych realnych testerów). Wyjątek wymagający
+  ręcznego dociągnięcia zamiast samej subskrypcji: `gift_plan_participants`
+  — zaproszony dostaje RLS-owe prawo do `gift_plans`/`gift_ideas` DOPIERO w
+  momencie tego inserta, więc subskrypcja samych tamtych dwóch tabel
+  niczego by nie złapała (event uprawniający je poprzedza).
+- **Link z potwierdzeniem e-maila (rejestracja) otwiera się często w innym
+  kontekście przeglądarki** (inna karta, aplikacja pocztowa) niż ten, w
+  którym ktoś się rejestrował — `localStorage` NIE przechodzi między takimi
+  kontekstami. Realny incydent: zaproszenie do znajomych zapisywane w
+  localStorage (`widoczek_pending_invite`) przed rejestracją ginęło właśnie
+  w ten sposób — użytkownik klikał link z maila, kończył rejestrację, ale
+  nigdy nie stawał się znajomym zapraszającego. Naprawione dwutorowo: (1)
+  `onRegister` ustawia `emailRedirectTo` z powrotem na `/invite/{code}`, więc
+  kod przetrwa w samym URL-u, nie tylko w localStorage — **wymaga, żeby ten
+  wzorzec URL-a był dodany do Redirect URLs w Supabase Auth (Dashboard →
+  Authentication → URL Configuration), inaczej Supabase go zignoruje i
+  wróci do gołego Site URL**; (2) `loadSession` przy odzyskiwaniu
+  zaproszenia preferuje kod z aktualnego URL-a (`routeInviteCode`) nad
+  localStorage — działa niezależnie od tego, czy to ten sam kontekst
+  przeglądarki, czy inny. Zweryfikowane w Playwright: sesja pojawiająca się
+  na `/invite/{code}` w kontekście z całkowicie pustym localStorage nadal
+  poprawnie tworzy znajomość.
+- **Nigdy nie zostawiaj fallbacku do danych z `mock-data.ts` w ścieżce
+  wyświetlającej dane PRAWDZIWEGO zalogowanego użytkownika** — realny
+  incydent: `effectiveMe.birthday`/`city` miały `profile.birthday ??
+  mockMe.birthday` (fallback na wpisaną na sztywno "12 marca 1994" z
+  oryginalnego prototypu Lovable), więc każdy nowo zarejestrowany user, który
+  nie wypełnił jeszcze urodzin, widział cudzą, przypadkowo wyglądającą datę
+  zamiast pustego pola. `mockMe`/`mock-data.ts` wolno używać wyłącznie jako
+  placeholder dla stanu "jeszcze niezalogowany" (ekran przed sesją) — nigdy
+  jako fallback dla brakującego pola realnego profilu; tam właściwy fallback
+  to `null`/`""`, nie żaden mock.
