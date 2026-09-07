@@ -1755,3 +1755,12 @@ begin
 exception
   when duplicate_object then null;
 end $$;
+
+-- Usuwanie znajomości ("Usuń znajomego") — brakowało w ogóle polityki
+-- delete, więc nawet gdyby UI na to pozwalał, RLS by to ubił. Znajomość jest
+-- zapisana kierunkowo, ale każda ze stron relacji może ją zakończyć —
+-- niezależnie, kto kogo dodał jako pierwszy.
+drop policy if exists "friendships_delete_related" on public.friendships;
+create policy "friendships_delete_related"
+  on public.friendships for delete
+  using (auth.uid() = user_id or auth.uid() = friend_id);

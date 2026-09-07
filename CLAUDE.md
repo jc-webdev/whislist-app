@@ -90,7 +90,10 @@ Tabele:
 - `friendships` — relacja znajomości (kierunkowa w zapisie, odczyt
   dwukierunkowy). Powstaje tylko przez akceptację `friend_requests` albo
   link z `friend_invites` — **nigdy** natychmiast przy samym wyszukaniu
-  osoby.
+  osoby. Usuwanie ("Usuń znajomego" na profilu znajomego, `removeFriend` w
+  AppShell) musi kasować wiersz niezależnie od tego, w którą stronę został
+  zapisany — stąd `.or(...)` z oboma kierunkami po stronie klienta, i
+  `friendships_delete_related` (dowolna ze stron relacji) po stronie RLS.
 - `friend_requests` — zaproszenie do znajomych oczekujące na akceptację
   (bez osobnej kolumny status — sam fakt istnienia wiersza to "pending";
   akceptacja/odrzucenie usuwa wiersz, patrz `accept_friend_request`).

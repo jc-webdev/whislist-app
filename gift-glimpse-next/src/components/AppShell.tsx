@@ -2247,6 +2247,34 @@ export function AppShell() {
         setLiveFriendRequests((prev) => prev.filter((row) => row.id !== requestId));
     };
 
+    // Znajomość jest zapisana kierunkowo (jeden wiersz, user_id -> friend_id
+    // w tę stronę, w którą akurat powstała — przez accept_friend_request albo
+    // tryAcceptInvite), ale odczytywana dwukierunkowo (patrz effectivePeople),
+    // więc usunięcie też musi sprawdzić obie strony — nie wiadomo z góry, kto
+    // kogo dodał jako pierwszy.
+    const removeFriend = async (friendId: string) => {
+        if (!session) return;
+        setIdeaActionError("");
+        const { error } = await supabase
+            .from("friendships")
+            .delete()
+            .or(`and(user_id.eq.${session.user.id},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${session.user.id})`);
+        if (error) {
+            setIdeaActionError(error.message);
+            return;
+        }
+        setLiveFriendships((prev) =>
+            prev.filter(
+                (row) =>
+                    !(
+                        (row.user_id === session.user.id && row.friend_id === friendId) ||
+                        (row.user_id === friendId && row.friend_id === session.user.id)
+                    )
+            )
+        );
+        goToPeople();
+    };
+
     // ETAP PO MVP 15 — "Podrzuć pomysł": prosta sugestia znajomemu (zdjęcie/
     // nazwa/link), bez SECURITY DEFINER — insert może tylko nadawca (RLS
     // sprawdza znajomość), status zmienia tylko odbiorca.
@@ -3337,6 +3365,19 @@ export function AppShell() {
                                 }}
                                 onSuggestIdea={() => goToSuggestIdea(selectedFriend.id)}
                                 onCreatePoll={() => goToCreatePoll(selectedFriend.id)}
+                                onRemoveFriend={() => {
+                                    void (async () => {
+                                        if (
+                                            await askConfirm({
+                                                title: `Usunąć ${selectedFriend.name} ze znajomych?`,
+                                                confirmLabel: "Usuń",
+                                                danger: true,
+                                            })
+                                        ) {
+                                            void removeFriend(selectedFriend.id);
+                                        }
+                                    })();
+                                }}
                             />
                         ) : null}
 
@@ -5343,6 +5384,7 @@ function ProfileScreen({
     onCreatePoll,
     pollsCount,
     onOpenPolls,
+    onRemoveFriend,
 }: {
     friend: Person;
     currentUser: Person;
@@ -5366,6 +5408,7 @@ function ProfileScreen({
     onCreatePoll?: () => void;
     pollsCount?: number;
     onOpenPolls?: () => void;
+    onRemoveFriend?: () => void;
 }) {
     const isMe = friend.id === currentUser.id;
 
@@ -5494,6 +5537,10 @@ function ProfileScreen({
 
             {!isMe && onCreatePoll ? (
                 <button className="secondary-button" onClick={onCreatePoll}>📊 Stwórz ankietę</button>
+            ) : null}
+
+            {!isMe && onRemoveFriend ? (
+                <button className="secondary-button danger-button" onClick={onRemoveFriend}>Usuń znajomego</button>
             ) : null}
 
             {isMe ? (

@@ -157,6 +157,32 @@ async function main() {
         assert.equal(afterEnableError, null, "po włączeniu z powrotem rezerwacja powinna przejść");
     });
 
+    // ---- Usuwanie znajomości ----
+
+    await test("friendships: dowolna ze stron może usunąć znajomość, obcy nie może", async () => {
+        const p1 = await createUser("unfriend1");
+        const p2 = await createUser("unfriend2");
+        const p3 = await createUser("unfriend3");
+        await admin.from("friendships").insert({ user_id: p1.id, friend_id: p2.id });
+
+        // Obcy (p3) nie jest stroną tej znajomości.
+        const { error: outsiderDeleteError } = await p3.client
+            .from("friendships")
+            .delete()
+            .eq("user_id", p1.id)
+            .eq("friend_id", p2.id);
+        void outsiderDeleteError;
+        const { data: stillThere } = await admin.from("friendships").select("*").eq("user_id", p1.id).eq("friend_id", p2.id);
+        assert.equal(stillThere.length, 1, "obcy nie powinien móc usunąć cudzej znajomości");
+
+        // p2 nie jest "user_id" w tym wierszu (relacja zapisana jako p1->p2),
+        // ale wciąż jest stroną — usuwanie musi działać z OBU kierunków.
+        const { error: deleteError } = await p2.client.from("friendships").delete().eq("user_id", p1.id).eq("friend_id", p2.id);
+        assert.equal(deleteError, null);
+        const { data: afterDelete } = await admin.from("friendships").select("*").eq("user_id", p1.id).eq("friend_id", p2.id);
+        assert.equal(afterDelete.length, 0);
+    });
+
     // ---- ETAP 15 — Podrzuć pomysł ----
 
     await test("sugestia: nadawca może wysłać znajomemu, dostaje notyfikację, obcy nie może", async () => {
