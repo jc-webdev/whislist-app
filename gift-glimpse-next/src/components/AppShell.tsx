@@ -1356,6 +1356,7 @@ export function AppShell() {
         id: string;
         name: string;
         description: string;
+        ownerId: string;
         isOwner: boolean;
         reservationsEnabled: boolean;
         members: Person[];
@@ -1389,6 +1390,7 @@ export function AppShell() {
                     id: group.id,
                     name: group.name,
                     description: group.description ?? "",
+                    ownerId: group.owner_id,
                     isOwner: group.owner_id === session.user.id,
                     reservationsEnabled: group.reservations_enabled,
                     members,
@@ -3197,7 +3199,9 @@ export function AppShell() {
                                                 <span className="bell-badge">{unreadNotificationsCount}</span>
                                             ) : null}
                                         </button>
-                                        <Avatar id={effectiveMe.id} name={effectiveMe.name} avatarUrl={effectiveMe.avatar} size="small" />
+                                        <button className="avatar-button" onClick={goToProfile} aria-label="Twój profil">
+                                            <Avatar id={effectiveMe.id} name={effectiveMe.name} avatarUrl={effectiveMe.avatar} size="small" />
+                                        </button>
                                     </div>
                                 </>
                             ) : screen === "people" ? (
@@ -3213,8 +3217,8 @@ export function AppShell() {
                                                 <span className="bell-badge">{pendingIncomingRequests.length}</span>
                                             ) : null}
                                         </button>
-                                        <button className="ghost-button" onClick={goToProfile}>
-                                            Ja
+                                        <button className="avatar-button" onClick={goToProfile} aria-label="Twój profil">
+                                            <Avatar id={effectiveMe.id} name={effectiveMe.name} avatarUrl={effectiveMe.avatar} size="small" />
                                         </button>
                                     </div>
                                 </>
@@ -3254,6 +3258,9 @@ export function AppShell() {
                                             {unreadNotificationsCount > 0 ? (
                                                 <span className="bell-badge">{unreadNotificationsCount}</span>
                                             ) : null}
+                                        </button>
+                                        <button className="avatar-button" onClick={goToProfile} aria-label="Twój profil">
+                                            <Avatar id={effectiveMe.id} name={effectiveMe.name} avatarUrl={effectiveMe.avatar} size="small" />
                                         </button>
                                     </div>
                                 </>
@@ -5241,6 +5248,7 @@ function PeopleScreen({
         id: string;
         name: string;
         description: string;
+        ownerId: string;
         isOwner: boolean;
         reservationsEnabled: boolean;
         members: Person[];
@@ -5257,6 +5265,7 @@ function PeopleScreen({
     const [showAddGroupForm, setShowAddGroupForm] = useState(false);
     const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
     const [invitingGroupId, setInvitingGroupId] = useState<string | null>(null);
+    const [inviteQuery, setInviteQuery] = useState("");
 
     const submitGroup = () => {
         onAddGroup(groupDraft);
@@ -5358,6 +5367,11 @@ function PeopleScreen({
                         const invitablePeople = people.filter(
                             (person) => !group.members.some((member) => member.id === person.id)
                         );
+                        const filteredInvitablePeople = inviteQuery.trim()
+                            ? invitablePeople.filter((person) =>
+                                  person.name.toLowerCase().includes(inviteQuery.trim().toLowerCase())
+                              )
+                            : invitablePeople;
 
                         return (
                             <div className="card body-card" key={group.id}>
@@ -5384,32 +5398,55 @@ function PeopleScreen({
                                 </div>
 
                                 {isExpanded ? (
-                                    <div className="stack small-stack">
+                                    <div className="stack small-stack member-list">
                                         {group.members.map((member) => (
-                                            <div className="list-row" key={member.id}>
-                                                <span>{member.name}</span>
+                                            <div className="person-row static" key={member.id}>
+                                                <Avatar id={member.id} name={member.name} avatarUrl={member.avatar} size="small" />
+                                                <div className="person-meta">
+                                                    <strong>{member.name}</strong>
+                                                </div>
+                                                {member.id === group.ownerId ? (
+                                                    <span className="status">Właściciel</span>
+                                                ) : null}
                                             </div>
                                         ))}
                                     </div>
                                 ) : null}
 
                                 {isInviting ? (
-                                    <div className="chip-row wrap">
+                                    <div className="invite-picker">
+                                        <input
+                                            className="invite-picker-search"
+                                            value={inviteQuery}
+                                            onChange={(event) => setInviteQuery(event.target.value)}
+                                            placeholder="Szukaj wśród znajomych…"
+                                            autoFocus
+                                        />
                                         {invitablePeople.length === 0 ? (
-                                            <span className="muted small">Wszyscy znajomi są już w tej grupie.</span>
+                                            <p className="muted small">Wszyscy znajomi są już w tej grupie.</p>
+                                        ) : filteredInvitablePeople.length === 0 ? (
+                                            <p className="muted small">Nikogo nie znaleziono.</p>
                                         ) : (
-                                            invitablePeople.map((person) => (
-                                                <button
-                                                    key={person.id}
-                                                    className="chip"
-                                                    onClick={() => {
-                                                        onInvite(group.id, person.id);
-                                                        setInvitingGroupId(null);
-                                                    }}
-                                                >
-                                                    {person.name}
-                                                </button>
-                                            ))
+                                            <div className="stack small-stack">
+                                                {filteredInvitablePeople.map((person) => (
+                                                    <div className="person-row static" key={person.id}>
+                                                        <Avatar id={person.id} name={person.name} avatarUrl={person.avatar} size="small" />
+                                                        <div className="person-meta">
+                                                            <strong>{person.name}</strong>
+                                                        </div>
+                                                        <button
+                                                            className="mini-button accent"
+                                                            onClick={() => {
+                                                                onInvite(group.id, person.id);
+                                                                setInvitingGroupId(null);
+                                                                setInviteQuery("");
+                                                            }}
+                                                        >
+                                                            Dodaj
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         )}
                                     </div>
                                 ) : null}
@@ -5418,7 +5455,10 @@ function PeopleScreen({
                                     {group.isOwner ? (
                                         <button
                                             className="mini-button"
-                                            onClick={() => setInvitingGroupId(isInviting ? null : group.id)}
+                                            onClick={() => {
+                                                setInvitingGroupId(isInviting ? null : group.id);
+                                                setInviteQuery("");
+                                            }}
                                         >
                                             {isInviting ? "Anuluj" : "Zaproś"}
                                         </button>

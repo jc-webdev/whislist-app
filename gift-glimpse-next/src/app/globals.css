@@ -882,6 +882,19 @@ h3 {
   font-size: 1.6rem;
 }
 
+/* Awatar w topbarze musi być klikalny wszędzie tam, gdzie prowadzi do
+   profilu — bez tego zresetowany <button> psuje krągły kształt awatara
+   (domyślny padding/border), więc ta klasa świadomie zeruje oba. */
+.avatar-button {
+  padding: 0;
+  border: none;
+  background: none;
+  border-radius: 50%;
+  line-height: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
 .poll-option {
   border: 1px solid rgba(132, 146, 139, 0.2);
 }
@@ -1103,6 +1116,45 @@ h3 {
   padding: 8px 10px;
   font-size: 0.72rem;
   font-weight: 700;
+}
+
+.mini-button.accent {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+/* Lista członków grupy i wyniki wyszukiwania przy zapraszaniu muszą wyglądać
+   jak konkretne osoby (awatar + imię), nie jak pigułki filtrów — inaczej
+   giną wśród przycisków Anuluj/Zaproś/Pokaż członków w tej samej karcie.
+   ".static" bo person-row bazowo jest stylem klikalnego <button>, a tu
+   część zastosowań (lista członków) jest czysto informacyjna. */
+.person-row.static {
+  cursor: default;
+}
+
+.member-list {
+  margin-top: 4px;
+}
+
+.invite-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+  padding: 14px;
+  border-radius: 20px;
+  background: rgba(132, 146, 139, 0.08);
+  border: 1px solid rgba(132, 146, 139, 0.18);
+}
+
+.invite-picker-search {
+  width: 100%;
+  border: 1px solid rgba(132, 146, 139, 0.24);
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 999px;
+  padding: 10px 16px;
+  color: var(--ink);
 }
 
 .section-header {
