@@ -4771,7 +4771,20 @@ function PollDetailScreen({
                         </div>
                     </div>
                 ) : (
-                    <h2>{poll.poll.question}</h2>
+                    <div className="row-between">
+                        <h2>{poll.poll.question}</h2>
+                        {isCreator ? (
+                            <button
+                                className="ghost-button"
+                                onClick={() => {
+                                    setQuestionDraft(poll.poll.question);
+                                    setIsEditingQuestion(true);
+                                }}
+                            >
+                                Edytuj
+                            </button>
+                        ) : null}
+                    </div>
                 )}
                 <div className="stack small-stack" style={{ marginTop: "14px" }}>
                     {poll.options.map((option) => {

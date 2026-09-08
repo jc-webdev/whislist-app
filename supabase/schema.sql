@@ -1764,3 +1764,41 @@ drop policy if exists "friendships_delete_related" on public.friendships;
 create policy "friendships_delete_related"
   on public.friendships for delete
   using (auth.uid() = user_id or auth.uid() = friend_id);
+
+-- Naprawa: "infinite recursion detected in policy for relation polls".
+-- polls_select_related sprawdzała poll_participants (exists), a
+-- poll_participants_select_visible_poll sprawdzała z powrotem polls (exists)
+-- — dokładnie ten sam cykl RLS co gift_ideas/idea_visibility czy
+-- gift_plans/gift_plan_participants wcześniej w tym projekcie. Ten sam
+-- sprawdzony lek: SECURITY DEFINER function omija RLS przy sprawdzaniu
+-- warunku, przerywając cykl (patrz is_gift_plan_participant).
+create or replace function public.is_poll_participant(p_poll_id uuid, p_user_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from poll_participants
+    where poll_id = p_poll_id and user_id = p_user_id
+  );
+$$;
+
+drop policy if exists "polls_select_related" on public.polls;
+create policy "polls_select_related"
+  on public.polls for select
+  using (
+    auth.uid() <> target_id
+    and (
+      auth.uid() = created_by
+      or public.is_poll_participant(polls.id, auth.uid())
+      or (
+        public.is_friend_of(target_id, auth.uid())
+        and (
+          group_id is null
+          or exists (select 1 from public.group_members gm where gm.group_id = polls.group_id and gm.user_id = auth.uid())
+        )
+      )
+    )
+  );
