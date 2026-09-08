@@ -1818,3 +1818,43 @@ do $$ begin alter publication supabase_realtime add table public.idea_groups; ex
 do $$ begin alter publication supabase_realtime add table public.group_members; exception when duplicate_object then null; end $$;
 do $$ begin alter publication supabase_realtime add table public.occasions; exception when duplicate_object then null; end $$;
 do $$ begin alter publication supabase_realtime add table public.profiles; exception when duplicate_object then null; end $$;
+
+-- ==================================================
+-- Usunięcie znajomości musi anulować rezerwacje między obiema stronami
+-- ==================================================
+-- Zgłoszone przez testera: usunął znajomego, któremu wcześniej
+-- zarezerwował pomysł — rezerwacja zostawała "wisząca" ze statusem
+-- 'reserved' na zawsze, więc is_idea_reserved nadal zwracał true i pomysł
+-- wyglądał na zajęty dla reszty znajomych, mimo że osoba rezerwująca nie
+-- jest już nawet znajomym właściciela. Trigger na DELETE z friendships
+-- anuluje wszystkie aktywne (reserved/purchased) rezerwacje między tymi
+-- dwiema osobami w OBIE strony (którakolwiek zarezerwowała czyj pomysł),
+-- zwalniając pomysł dla innych. Przejście reserved/purchased -> cancelled
+-- jest już dozwolone przez enforce_reservation_transition bez potrzeby
+-- furtki app.internal_reservation_update (patrz ta funkcja wyżej), a
+-- SECURITY DEFINER omija RLS (które i tak ograniczałoby UPDATE do samego
+-- rezerwującego), więc może to zrobić w imieniu obu stron na raz.
+create or replace function public.cancel_reservations_after_unfriend()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update gift_reservations r
+  set status = 'cancelled'
+  from gift_ideas i
+  where r.idea_id = i.id
+    and r.status in ('reserved', 'purchased')
+    and (
+      (r.reserved_by = old.user_id and i.user_id = old.friend_id)
+      or (r.reserved_by = old.friend_id and i.user_id = old.user_id)
+    );
+  return old;
+end;
+$$;
+
+drop trigger if exists trg_cancel_reservations_after_unfriend on public.friendships;
+create trigger trg_cancel_reservations_after_unfriend
+  after delete on public.friendships
+  for each row execute function public.cancel_reservations_after_unfriend();

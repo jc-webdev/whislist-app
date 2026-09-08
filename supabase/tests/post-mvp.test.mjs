@@ -183,6 +183,37 @@ async function main() {
         assert.equal(afterDelete.length, 0);
     });
 
+    await test("friendships: usunięcie znajomości anuluje aktywną rezerwację i zwalnia pomysł", async () => {
+        const reserverOwner = await createUser("unfriend-owner");
+        const reserverFriend = await createUser("unfriend-friend");
+        await admin.from("friendships").insert({ user_id: reserverOwner.id, friend_id: reserverFriend.id });
+        const ideaId = await makeIdea(reserverOwner.id, null, { visible_to_all: true });
+
+        const { data: reservation, error: reserveError } = await reserverFriend.client
+            .from("gift_reservations")
+            .insert({ idea_id: ideaId, reserved_by: reserverFriend.id })
+            .select()
+            .single();
+        assert.equal(reserveError, null);
+
+        await admin
+            .from("friendships")
+            .delete()
+            .eq("user_id", reserverOwner.id)
+            .eq("friend_id", reserverFriend.id);
+
+        const { data: afterUnfriend } = await admin.from("gift_reservations").select("status").eq("id", reservation.id).single();
+        assert.equal(afterUnfriend.status, "cancelled", "rezerwacja powinna zostać anulowana po usunięciu znajomości");
+
+        // Pomysł musi być znowu rezerwowalny — tym razem przez kogoś innego.
+        const anotherFriend = await createUser("unfriend-another");
+        await admin.from("friendships").insert({ user_id: reserverOwner.id, friend_id: anotherFriend.id });
+        const { error: reReserveError } = await anotherFriend.client
+            .from("gift_reservations")
+            .insert({ idea_id: ideaId, reserved_by: anotherFriend.id });
+        assert.equal(reReserveError, null, "pomysł powinien być zwolniony do ponownej rezerwacji");
+    });
+
     // ---- ETAP 15 — Podrzuć pomysł ----
 
     await test("sugestia: nadawca może wysłać znajomemu, dostaje notyfikację, obcy nie może", async () => {

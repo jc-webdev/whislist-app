@@ -94,6 +94,15 @@ Tabele:
   AppShell) musi kasować wiersz niezależnie od tego, w którą stronę został
   zapisany — stąd `.or(...)` z oboma kierunkami po stronie klienta, i
   `friendships_delete_related` (dowolna ze stron relacji) po stronie RLS.
+  Trigger `cancel_reservations_after_unfriend` (SECURITY DEFINER, `after
+  delete`) anuluje przy tym wszystkie aktywne rezerwacje między tymi dwiema
+  osobami w OBIE strony — zgłoszony realny incydent: usunięcie znajomego,
+  któremu wcześniej zarezerwowano pomysł, zostawiało rezerwację wiszącą na
+  zawsze (`is_idea_reserved` nadal `true`), więc pomysł wyglądał na trwale
+  zajęty dla reszty znajomych mimo że rezerwujący nie jest już nawet
+  znajomym właściciela. Bez potrzeby furtki
+  `app.internal_reservation_update` — `reserved/purchased -> cancelled`
+  jest zwykłym dozwolonym przejściem w `enforce_reservation_transition`.
 - `friend_requests` — zaproszenie do znajomych oczekujące na akceptację
   (bez osobnej kolumny status — sam fakt istnienia wiersza to "pending";
   akceptacja/odrzucenie usuwa wiersz, patrz `accept_friend_request`).
