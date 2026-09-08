@@ -200,6 +200,17 @@ function polishPlural(count: number, [one, few, many]: [string, string, string])
 const ideaWord = (count: number) => polishPlural(count, ["pomysł", "pomysły", "pomysłów"]);
 const personWord = (count: number) => polishPlural(count, ["osoba", "osoby", "osób"]);
 
+// Pole birthday jest zapisywane jako YYYY-MM-DD (input type="date"), ale
+// starsze konta mogły mieć tu dowolny wolny tekst sprzed tej zmiany —
+// pokazujemy go bez zmian, jeśli nie da się sparsować jako data.
+function formatBirthday(birthday: string | null | undefined): string {
+    if (!birthday) return "brak daty";
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(birthday);
+    if (!match) return birthday;
+    const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    return date.toLocaleDateString("pl-PL", { day: "numeric", month: "long", year: "numeric" });
+}
+
 // Zgaduje nazwę sklepu z domeny linku (np. "https://www.empik.com/..." -> "Empik"),
 // żeby nie zmuszać użytkownika do ręcznego wpisywania oczywistej rzeczy.
 function guessStoreFromUrl(url: string): string {
@@ -2985,10 +2996,11 @@ export function AppShell() {
                             <input
                                 id="register-birthday"
                                 name="bday"
+                                type="date"
                                 value={registerForm.birthday}
                                 autoComplete="bday"
+                                max={new Date().toISOString().slice(0, 10)}
                                 onChange={(event) => setRegisterForm((prev) => ({ ...prev, birthday: event.target.value }))}
-                                placeholder="np. 12 marca"
                             />
                         </div>
                         {authError ? <div className="error-box">{authError}</div> : null}
@@ -5283,7 +5295,7 @@ function PeopleScreen({
                                 <strong>{person.name}</strong>
                                 <span>{person.relation}</span>
                             </div>
-                            <span className="badge">🎂 {person.birthday}</span>
+                            <span className="badge">🎂 {formatBirthday(person.birthday)}</span>
                         </button>
                     ))}
                 </>
@@ -5653,7 +5665,7 @@ function GiftsScreen({
                         {people.map((person) => (
                             <button key={person.id} className="list-row clickable-row" onClick={() => onSelectFriend(person.id)}>
                                 <span>{person.name}</span>
-                                <span className="badge">🎂 {person.birthday}</span>
+                                <span className="badge">🎂 {formatBirthday(person.birthday)}</span>
                             </button>
                         ))}
                     </div>
@@ -5728,7 +5740,7 @@ function ProfileScreen({
                 </div>
                 <h2>{isMe ? currentUser.name : friend.name}</h2>
                 <div className="badge-row">
-                    <span className="badge">🎂 {isMe ? currentUser.birthday : friend.birthday}</span>
+                    <span className="badge">🎂 {formatBirthday(isMe ? currentUser.birthday : friend.birthday)}</span>
                     <span className="badge">{friendIdeas.length} {ideaWord(friendIdeas.length)}</span>
                 </div>
             </div>
@@ -5932,7 +5944,12 @@ function EditProfileScreen({
                     </div>
                     <div className="field-group">
                         <label>Urodziny</label>
-                        <input value={birthday} onChange={(event) => setBirthday(event.target.value)} placeholder="np. 12 marca" />
+                        <input
+                            type="date"
+                            value={/^\d{4}-\d{2}-\d{2}$/.test(birthday) ? birthday : ""}
+                            onChange={(event) => setBirthday(event.target.value)}
+                            max={new Date().toISOString().slice(0, 10)}
+                        />
                     </div>
                 </div>
                 <button className="primary-button" onClick={() => onSaveProfile({ fullName, city, birthday })}>

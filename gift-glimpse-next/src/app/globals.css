@@ -76,7 +76,23 @@ img {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  gap: 12px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+/* Ten pierwszy div to zawsze blok eyebrow+h1 (patrz każdy branch "screen ==="
+   w AppShell) — musi móc się skurczyć i zawinąć WŁASNY tekst, żeby długie
+   imię/nazwisko (np. w "Profil znajomego") nie odpychało przycisku Wróć
+   obok do zawinięcia w drugą linijkę razem z nim. */
+.topbar-inner > div:first-child {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.topbar-inner > .back-button,
+.topbar-inner > .topbar-actions {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .eyebrow {
