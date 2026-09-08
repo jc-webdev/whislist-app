@@ -1751,6 +1751,191 @@ export function AppShell() {
                     );
                 }
             )
+            // gift_ideas — tabela bez której cała reszta aplikacji nie ma sensu, a
+            // do teraz nie miała żadnego realtime. Bez UPDATE-a w szczególności:
+            // znajomy dodaje pusty pomysł (widoczny od razu dzięki INSERT-owi),
+            // potem edytuje go o zdjęcie/cenę — bez tego handlera ta zmiana była
+            // niewidoczna aż do ręcznego odświeżenia.
+            .on(
+                "postgres_changes",
+                { event: "INSERT", schema: "public", table: "gift_ideas" },
+                (payload) => {
+                    const idea = payload.new as GiftIdeaRow;
+                    setLiveIdeas((prev) => (prev.some((row) => row.id === idea.id) ? prev : [...prev, idea]));
+                }
+            )
+            .on(
+                "postgres_changes",
+                { event: "UPDATE", schema: "public", table: "gift_ideas" },
+                (payload) => {
+                    const updated = payload.new as GiftIdeaRow;
+                    setLiveIdeas((prev) => prev.map((row) => (row.id === updated.id ? updated : row)));
+                }
+            )
+            .on(
+                "postgres_changes",
+                { event: "DELETE", schema: "public", table: "gift_ideas" },
+                (payload) => {
+                    const deletedId = (payload.old as { id?: string }).id;
+                    if (!deletedId) return;
+                    setLiveIdeas((prev) => prev.filter((row) => row.id !== deletedId));
+                    setLiveIdeaVisibility((prev) => prev.filter((row) => row.idea_id !== deletedId));
+                }
+            )
+            // Udostępnienie pomysłu nowej grupie to — tak samo jak przy
+            // gift_plan_participants/poll_participants — pierwszy moment, w którym
+            // członkowie tej grupy w ogóle mają prawo RLS zobaczyć dany gift_ideas,
+            // więc sam insert do idea_visibility trzeba dociągnąć osobnym
+            // zapytaniem o samą ideę, inaczej nowo udostępniony pomysł zostanie
+            // niewidoczny aż do odświeżenia mimo że idea_visibility już wskazuje
+            // na dostępną grupę.
+            .on(
+                "postgres_changes",
+                { event: "INSERT", schema: "public", table: "idea_visibility" },
+                (payload) => {
+                    const row = payload.new as IdeaVisibilityRow;
+                    setLiveIdeaVisibility((prev) =>
+                        prev.some((v) => v.idea_id === row.idea_id && v.group_id === row.group_id) ? prev : [...prev, row]
+                    );
+                    void (async () => {
+                        const { data: idea } = await supabase.from("gift_ideas").select("*").eq("id", row.idea_id).single();
+                        if (idea) setLiveIdeas((prev) => (prev.some((r) => r.id === idea.id) ? prev : [...prev, idea as GiftIdeaRow]));
+                    })();
+                }
+            )
+            .on(
+                "postgres_changes",
+                { event: "DELETE", schema: "public", table: "idea_visibility" },
+                (payload) => {
+                    const old = payload.old as Partial<IdeaVisibilityRow>;
+                    setLiveIdeaVisibility((prev) =>
+                        prev.filter((row) => !(row.idea_id === old.idea_id && row.group_id === old.group_id))
+                    );
+                }
+            )
+            // Rezerwacje: RLS na gift_reservations już gwarantuje, że jakikolwiek
+            // wiersz tu przyjdzie, to zawsze MOJA własna rezerwacja (właściciel
+            // pomysłu nie ma polityki SELECT) — bez dodatkowego filtrowania po
+            // stronie klienta.
+            .on(
+                "postgres_changes",
+                { event: "INSERT", schema: "public", table: "gift_reservations" },
+                (payload) => {
+                    const row = payload.new as ReservationRow;
+                    setMyReservations((prev) => (prev.some((r) => r.id === row.id) ? prev : [...prev, row]));
+                }
+            )
+            .on(
+                "postgres_changes",
+                { event: "UPDATE", schema: "public", table: "gift_reservations" },
+                (payload) => {
+                    const updated = payload.new as ReservationRow;
+                    setMyReservations((prev) => prev.map((row) => (row.id === updated.id ? updated : row)));
+                }
+            )
+            // Znajomości: żeby OBIE strony zobaczyły nowego znajomego (albo usunięcie
+            // znajomego wykonane w innej karcie/urządzeniu) bez odświeżania.
+            .on(
+                "postgres_changes",
+                { event: "INSERT", schema: "public", table: "friendships" },
+                (payload) => {
+                    const row = payload.new as FriendshipRow;
+                    setLiveFriendships((prev) =>
+                        prev.some((f) => f.user_id === row.user_id && f.friend_id === row.friend_id) ? prev : [...prev, row]
+                    );
+                }
+            )
+            .on(
+                "postgres_changes",
+                { event: "DELETE", schema: "public", table: "friendships" },
+                (payload) => {
+                    const old = payload.old as Partial<FriendshipRow>;
+                    setLiveFriendships((prev) => prev.filter((row) => !(row.user_id === old.user_id && row.friend_id === old.friend_id)));
+                }
+            )
+            .on(
+                "postgres_changes",
+                { event: "INSERT", schema: "public", table: "idea_groups" },
+                (payload) => {
+                    const row = payload.new as GroupRow;
+                    setLiveGroups((prev) => (prev.some((r) => r.id === row.id) ? prev : [...prev, row]));
+                }
+            )
+            .on(
+                "postgres_changes",
+                { event: "UPDATE", schema: "public", table: "idea_groups" },
+                (payload) => {
+                    const updated = payload.new as GroupRow;
+                    setLiveGroups((prev) => prev.map((row) => (row.id === updated.id ? updated : row)));
+                }
+            )
+            // Dołączenie do grupy jest dokładnie tym samym przypadkiem co
+            // idea_visibility powyżej: dopiero ten insert daje mi RLS-owe prawo do
+            // pomysłów już udostępnionych tej grupie, więc trzeba je dociągnąć.
+            .on(
+                "postgres_changes",
+                { event: "INSERT", schema: "public", table: "group_members" },
+                (payload) => {
+                    const row = payload.new as GroupMemberRow;
+                    setLiveGroupMembers((prev) =>
+                        prev.some((r) => r.group_id === row.group_id && r.user_id === row.user_id) ? prev : [...prev, row]
+                    );
+                    if (row.user_id !== userId) return;
+                    void (async () => {
+                        const { data: visRows } = await supabase.from("idea_visibility").select("*").eq("group_id", row.group_id);
+                        if (!visRows || visRows.length === 0) return;
+                        setLiveIdeaVisibility((prev) => {
+                            const existing = new Set(prev.map((v) => `${v.idea_id}:${v.group_id}`));
+                            return [...prev, ...visRows.filter((v) => !existing.has(`${v.idea_id}:${v.group_id}`))];
+                        });
+                        const { data: ideas } = await supabase
+                            .from("gift_ideas")
+                            .select("*")
+                            .in("id", visRows.map((v) => v.idea_id));
+                        if (ideas) {
+                            setLiveIdeas((prev) => {
+                                const existing = new Set(prev.map((i) => i.id));
+                                return [...prev, ...ideas.filter((i) => !existing.has(i.id))];
+                            });
+                        }
+                    })();
+                }
+            )
+            .on(
+                "postgres_changes",
+                { event: "DELETE", schema: "public", table: "group_members" },
+                (payload) => {
+                    const old = payload.old as Partial<GroupMemberRow>;
+                    setLiveGroupMembers((prev) => prev.filter((row) => !(row.group_id === old.group_id && row.user_id === old.user_id)));
+                }
+            )
+            .on(
+                "postgres_changes",
+                { event: "INSERT", schema: "public", table: "occasions" },
+                (payload) => {
+                    const row = payload.new as OccasionRow;
+                    setLiveOccasions((prev) => (prev.some((r) => r.id === row.id) ? prev : [...prev, row]));
+                }
+            )
+            .on(
+                "postgres_changes",
+                { event: "DELETE", schema: "public", table: "occasions" },
+                (payload) => {
+                    const deletedId = (payload.old as { id?: string }).id;
+                    if (deletedId) setLiveOccasions((prev) => prev.filter((row) => row.id !== deletedId));
+                }
+            )
+            // Profile: żeby zmiana zdjęcia/imienia u znajomego (profiles jest
+            // widoczne dla wszystkich zalogowanych, patrz RLS) była widoczna od
+            // razu wszędzie, gdzie wyświetlamy tę osobę.
+            .on(
+                "postgres_changes",
+                { event: "UPDATE", schema: "public", table: "profiles" },
+                (payload) => {
+                    const updated = payload.new as ProfileRow;
+                    setLiveProfiles((prev) => prev.map((row) => (row.id === updated.id ? updated : row)));
+                }
+            )
             .subscribe();
 
         return () => {

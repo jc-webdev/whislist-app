@@ -379,19 +379,30 @@ W `gift-glimpse-next/`:
   powinien wchodzić przez `router.replace`, nie `push` — wtedy nie ma się
   co zdublować.
 - Architektura tego projektu (persistent client shell, `loadSession` raz na
-  sesję) oznacza, że dane innego użytkownika (np. ktoś dodał Cię do grupy,
-  wysłał zaproszenie) nie pojawią się bez odświeżenia/relogowania, **chyba
-  że jest to jawnie objęte Supabase Realtime** (patrz `notifications-${userId}`
-  channel w AppShell — subskrybuje teraz notifications/friend_requests/
-  idea_suggestions/gift_plan_participants/polls/poll_options/poll_votes) —
-  pamiętaj o tym ograniczeniu przy każdej nowej funkcji społecznościowej i
-  DODAJ subskrypcję od razu, zamiast czekać, aż ktoś zgłosi "widzę
-  powiadomienie, ale treść jest pusta" (dokładnie tak wyszła ta luka na
-  jaw — zgłoszona przez pierwszych realnych testerów). Wyjątek wymagający
-  ręcznego dociągnięcia zamiast samej subskrypcji: `gift_plan_participants`
-  — zaproszony dostaje RLS-owe prawo do `gift_plans`/`gift_ideas` DOPIERO w
-  momencie tego inserta, więc subskrypcja samych tamtych dwóch tabel
-  niczego by nie złapała (event uprawniający je poprzedza).
+  sesję) oznacza, że dane innego użytkownika nie pojawią się bez
+  odświeżenia/relogowania, **chyba że jest to jawnie objęte Supabase
+  Realtime**. `notifications-${userId}` channel w AppShell subskrybuje dziś
+  **wszystkie** tabele z modelu danych: `notifications`, `friend_requests`,
+  `idea_suggestions`, `gift_plan_participants`, `polls`/`poll_options`/
+  `poll_votes`/`poll_participants`, **oraz (dodane po realnym incydencie)
+  `gift_ideas`, `idea_visibility`, `gift_reservations`, `friendships`,
+  `idea_groups`, `group_members`, `occasions`, `profiles`.** Realny
+  incydent, który to wymusił: znajomy dodał pomysł (widoczny od razu, bo
+  akurat to trafiało przez inny kanał), potem doedytował go o zdjęcie/cenę
+  (`UPDATE` na `gift_ideas`) — i nic się nie zaktualizowało, bo `gift_ideas`,
+  najważniejsza tabela w całej aplikacji, nigdy nie miała realtime.
+  **Zasada na przyszłość: każda nowa tabela w schemacie od razu dostaje
+  wpis w `supabase_realtime` publication I subskrypcję w tym samym channelu
+  — nie czekaj, aż ktoś zgłosi "muszę odświeżyć, żeby to zobaczyć".**
+  Wyjątek wymagający ręcznego dociągnięcia zamiast samej subskrypcji:
+  `gift_plan_participants`/`poll_participants`/`group_members`/
+  `idea_visibility` — dołączenie/udostępnienie jest DOPIERO momentem, w
+  którym dana osoba zyskuje RLS-owe prawo do powiązanego wiersza
+  (`gift_plans`/`gift_ideas`/`polls`), więc subskrypcja samej tabeli
+  łączącej niczego by nie złapała (event uprawniający ją poprzedza) — trzeba
+  po odebraniu inserta dociągnąć powiązany rekord osobnym zapytaniem
+  (patrz handlery `group_members`/`idea_visibility`/`poll_participants` w
+  AppShell dla wzorca).
 - **Link z potwierdzeniem e-maila (rejestracja) otwiera się często w innym
   kontekście przeglądarki** (inna karta, aplikacja pocztowa) niż ten, w
   którym ktoś się rejestrował — `localStorage` NIE przechodzi między takimi

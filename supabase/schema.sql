@@ -1802,3 +1802,24 @@ create policy "polls_select_related"
       )
     )
   );
+
+-- ==================================================
+-- Realtime dla podstawowych tabel, ktorym go brakowalo — zgloszone przez
+-- testerow: znajomy dodal pomysl (insert dotarl, bo tabela notifications
+-- ma realtime i sam widok pomyslu odswieza sie przy nawigacji), ale kiedy
+-- pozniej dodal zdjecie/cene (UPDATE tego samego wiersza gift_ideas), nic
+-- sie nie zaktualizowalo bez recznego odswiezenia — bo gift_ideas W OGOLE
+-- nie mial realtime. To najwazniejsza tabela w calej aplikacji i miala
+-- dokladnie ta sama luke, ktora juz naprawialismy punktowo dla nowszych
+-- funkcji (polls/gift_plans) — teraz domykamy ja dla calej reszty modelu
+-- danych, zgodnie z zasada "kazda funkcja ma miec realtime".
+-- ==================================================
+
+do $$ begin alter publication supabase_realtime add table public.gift_ideas; exception when duplicate_object then null; end $$;
+do $$ begin alter publication supabase_realtime add table public.idea_visibility; exception when duplicate_object then null; end $$;
+do $$ begin alter publication supabase_realtime add table public.gift_reservations; exception when duplicate_object then null; end $$;
+do $$ begin alter publication supabase_realtime add table public.friendships; exception when duplicate_object then null; end $$;
+do $$ begin alter publication supabase_realtime add table public.idea_groups; exception when duplicate_object then null; end $$;
+do $$ begin alter publication supabase_realtime add table public.group_members; exception when duplicate_object then null; end $$;
+do $$ begin alter publication supabase_realtime add table public.occasions; exception when duplicate_object then null; end $$;
+do $$ begin alter publication supabase_realtime add table public.profiles; exception when duplicate_object then null; end $$;
