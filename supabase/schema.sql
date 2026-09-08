@@ -1198,18 +1198,13 @@ exception
   when duplicate_object then null;
 end $$;
 
--- Rozszerzenie listy dozwolonych typów powiadomień o zdarzenia z etapów 15 i 17.
-alter table public.notifications drop constraint if exists notifications_type_check;
-alter table public.notifications add constraint notifications_type_check
-  check (type in (
-    'gift_received_reserved',
-    'gift_received_purchased_confirmed',
-    'friend_request_received',
-    'friend_request_accepted',
-    'idea_suggestion_received',
-    'gift_plan_invite',
-    'poll_created'
-  ));
+-- Pełna, docelowa lista dozwolonych typów jest zdefiniowana raz, na dole
+-- pliku (patrz ostatnie "alter table ... add constraint
+-- notifications_type_check") — była tu wcześniej osobna, węższa definicja
+-- (bez późniejszych typów jak poll_participant_added), która na żywej bazie
+-- z realnymi wierszami tych typów powodowała dokładnie ten sam błąd "check
+-- constraint is violated by some row" co poprzednio przy analogicznym
+-- duplikacie — usunięta z tego samego powodu.
 
 -- ==================================================
 -- ETAP 8 — "Okazje" (urodziny i inne wydarzenia jako osobny model)

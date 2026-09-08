@@ -129,12 +129,21 @@ Tabele:
   RPC), klient nigdy nie insertuje bezpośrednio. Typy: `gift_received_reserved`,
   `gift_received_purchased_confirmed`, `friend_request_received`,
   `friend_request_accepted`, `idea_suggestion_received`, `gift_plan_invite`,
-  `poll_created`. **Każdy nowy typ w `notifications_type_check` (schema.sql)
-  musi mieć odpowiadający `case` w `textFor()` w `NotificationsScreen`
-  (AppShell.tsx)** — inaczej cicho pada na domyślne "Nowe powiadomienie."
-  (dokładnie to się stało z `poll_created` przy pierwszym wdrożeniu ankiet,
-  złapane dopiero w live Playwright, nie w tsc/lint). Włączony Supabase
-  Realtime (`supabase_realtime` publication).
+  `poll_created`, `poll_participant_added`. **Każdy nowy typ w
+  `notifications_type_check` (schema.sql) musi mieć odpowiadający `case` w
+  `textFor()` w `NotificationsScreen` (AppShell.tsx)** — inaczej cicho pada
+  na domyślne "Nowe powiadomienie." (dokładnie to się stało z `poll_created`
+  przy pierwszym wdrożeniu ankiet, złapane dopiero w live Playwright, nie w
+  tsc/lint). Włączony Supabase Realtime (`supabase_realtime` publication).
+  **Przy dodawaniu nowego typu EDYTUJ w miejscu jedyną, istniejącą definicję
+  tego constraintu (`grep -n notifications_type_check schema.sql` — ma być
+  dokładnie jedna) — nie dopisuj nowego `drop constraint`/`add constraint`
+  bloku na końcu pliku.** To już DWUKROTNIE (etap 17→19 i etap
+  poll_participant_added) spowodowało realny incydent: druga, starsza
+  definicja wykonuje się PIERWSZA przy ponownym wklejeniu całego pliku od
+  góry i odrzuca już istniejące w bazie wiersze nowszych typów błędem "check
+  constraint is violated by some row". Ten sam wzorzec ryzyka dotyczy
+  każdego constraintu z enumerowaną listą wartości, nie tylko tego jednego.
 - `idea_suggestions` — "Podrzuć pomysł" (etap 15): sender/recipient/title/
   url/image_url/status. Prostsze niż rezerwacje (brak niespodzianki do
   ochrony), więc zwykłe RLS bez `SECURITY DEFINER` na zapis.
