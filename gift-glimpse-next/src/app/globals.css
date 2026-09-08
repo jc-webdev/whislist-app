@@ -106,7 +106,11 @@ h3 {
 }
 
 .content {
-  padding: 18px 18px 18px;
+  /* Pasek nawigacji na dole jest position:fixed i istnieje na każdym ekranie
+     (patrz .bottom-nav) — bez tego paddingu ostatnie ~80-90px treści na
+     KAŻDYM ekranie poza "Pomysły" chowało się pod nim, nieosiągalne nawet
+     po przewinięciu do końca. */
+  padding: 18px 18px calc(110px + env(safe-area-inset-bottom));
 }
 
 .content.has-fab {
@@ -218,9 +222,12 @@ h3 {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 4px;
   border-radius: 999px;
   font-size: 0.72rem;
   font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .badge,
@@ -685,6 +692,7 @@ h3 {
   gap: 8px;
   overflow-x: auto;
   padding-bottom: 6px;
+  padding-right: 20px;
   margin-bottom: 8px;
   scrollbar-width: none;
 }
@@ -767,9 +775,10 @@ h3 {
 
 .row-between {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
-  gap: 10px;
+  gap: 6px 10px;
 }
 
 .price-row {

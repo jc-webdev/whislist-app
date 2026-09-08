@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { usePathname, useRouter } from "next/navigation";
 import {
     me as mockMe,
@@ -793,6 +794,7 @@ function OnboardingScreen({
 export function AppShell() {
     const router = useRouter();
     const pathname = usePathname();
+    const shouldReduceMotion = useReducedMotion();
     const route = useMemo(() => parseRoute(pathname), [pathname]);
     const screen = route.screen;
     const detailOwner = route.screen === "detail" ? route.owner : "mine";
@@ -835,6 +837,7 @@ export function AppShell() {
         fullName: "",
         email: "",
         password: "",
+        birthday: "",
     });
     const [forgotEmail, setForgotEmail] = useState("");
     const [recoveryPassword, setRecoveryPassword] = useState("");
@@ -966,6 +969,7 @@ export function AppShell() {
                     email: currentSession.user.email,
                     full_name: metadata.full_name ?? currentSession.user.email,
                     city: metadata.city ?? null,
+                    birthday: metadata.birthday ?? null,
                 });
                 profilesRes = await supabase.from("profiles").select("*").order("full_name", { ascending: true });
             }
@@ -2007,10 +2011,12 @@ export function AppShell() {
                 ? `${window.location.origin}${routeInviteCode ? `/invite/${routeInviteCode}` : ""}`
                 : undefined;
 
+        const birthday = registerForm.birthday.trim();
+
         const { data, error } = await supabase.auth.signUp({
             email,
             password,
-            options: { data: { full_name: fullName }, emailRedirectTo },
+            options: { data: { full_name: fullName, birthday: birthday || undefined }, emailRedirectTo },
         });
 
         if (error) {
@@ -2789,6 +2795,17 @@ export function AppShell() {
                                 placeholder="••••••••"
                             />
                         </div>
+                        <div className="field-group">
+                            <label htmlFor="register-birthday">Urodziny (opcjonalnie)</label>
+                            <input
+                                id="register-birthday"
+                                name="bday"
+                                value={registerForm.birthday}
+                                autoComplete="bday"
+                                onChange={(event) => setRegisterForm((prev) => ({ ...prev, birthday: event.target.value }))}
+                                placeholder="np. 12 marca"
+                            />
+                        </div>
                         {authError ? <div className="error-box">{authError}</div> : null}
                         <button className="primary-button" type="submit">Zarejestruj się</button>
                         <button
@@ -3084,7 +3101,7 @@ export function AppShell() {
                             ) : screen === "notifications" ? (
                                 <>
                                     <div>
-                                        <div className="eyebrow">Pomysły</div>
+                                        <div className="eyebrow">Aktywność</div>
                                         <h1>Powiadomienia</h1>
                                     </div>
                                     <BackButton onClick={goBack} />
@@ -3100,7 +3117,7 @@ export function AppShell() {
                             ) : screen === "gift-plans" ? (
                                 <>
                                     <div>
-                                        <div className="eyebrow">Pomysły</div>
+                                        <div className="eyebrow">Twój profil</div>
                                         <h1>Wspólne prezenty</h1>
                                     </div>
                                     <BackButton onClick={goBack} />
@@ -3132,7 +3149,7 @@ export function AppShell() {
                             ) : screen === "polls" ? (
                                 <>
                                     <div>
-                                        <div className="eyebrow">Pomysły</div>
+                                        <div className="eyebrow">Twój profil</div>
                                         <h1>Ankiety</h1>
                                     </div>
                                     <BackButton onClick={goBack} />
@@ -3165,6 +3182,14 @@ export function AppShell() {
                     </header>
 
                     <main className={screen === "ideas" ? "content has-fab" : "content"}>
+                    <AnimatePresence mode="wait" initial={false}>
+                    <motion.div
+                        key={screen}
+                        initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: shouldReduceMotion ? 0 : -8 }}
+                        transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                    >
                         {screen === "ideas" ? (
                             <IdeasScreen
                                 ideas={visibleIdeas}
@@ -3511,6 +3536,8 @@ export function AppShell() {
                                 error={ideaActionError}
                             />
                         ) : null}
+                    </motion.div>
+                    </AnimatePresence>
                     </main>
 
                     <nav className="bottom-nav">
@@ -3543,25 +3570,39 @@ export function AppShell() {
                         <button className="fab" onClick={goToAddIdea}>+ Dodaj pomysł</button>
                     ) : null}
 
-                    {confirmRequest ? (
-                        <div className="confirm-overlay">
-                            <div className="confirm-dialog">
-                                <h3>{confirmRequest.title}</h3>
-                                {confirmRequest.message ? <p>{confirmRequest.message}</p> : null}
-                                <div className="confirm-actions">
-                                    <button className="secondary-button" onClick={() => resolveConfirm(false)}>
-                                        {confirmRequest.cancelLabel}
-                                    </button>
-                                    <button
-                                        className={confirmRequest.danger ? "primary-button danger-button" : "primary-button"}
-                                        onClick={() => resolveConfirm(true)}
-                                    >
-                                        {confirmRequest.confirmLabel}
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    ) : null}
+                    <AnimatePresence>
+                        {confirmRequest ? (
+                            <motion.div
+                                className="confirm-overlay"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.15 }}
+                            >
+                                <motion.div
+                                    className="confirm-dialog"
+                                    initial={{ opacity: 0, scale: shouldReduceMotion ? 1 : 0.96, y: shouldReduceMotion ? 0 : 8 }}
+                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: shouldReduceMotion ? 1 : 0.96, y: shouldReduceMotion ? 0 : 8 }}
+                                    transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                                >
+                                    <h3>{confirmRequest.title}</h3>
+                                    {confirmRequest.message ? <p>{confirmRequest.message}</p> : null}
+                                    <div className="confirm-actions">
+                                        <button className="secondary-button" onClick={() => resolveConfirm(false)}>
+                                            {confirmRequest.cancelLabel}
+                                        </button>
+                                        <button
+                                            className={confirmRequest.danger ? "primary-button danger-button" : "primary-button"}
+                                            onClick={() => resolveConfirm(true)}
+                                        >
+                                            {confirmRequest.confirmLabel}
+                                        </button>
+                                    </div>
+                                </motion.div>
+                            </motion.div>
+                        ) : null}
+                    </AnimatePresence>
                 </>
         </div>
     );
@@ -3589,6 +3630,8 @@ function IdeasScreen({
     const recent = ideas.slice(0, 2);
     const rest = ideas;
     const isReserved = (ideaId: string) => Boolean(reservationStatus?.[ideaId]?.reserved);
+    const shouldReduceMotion = useReducedMotion();
+    const cardDelay = (index: number) => (shouldReduceMotion ? 0 : Math.min(index, 8) * 0.035);
 
     return (
         <>
@@ -3611,8 +3654,15 @@ function IdeasScreen({
                 </div>
 
                 <div className="stack">
-                    {recent.map((idea) => (
-                        <IdeaCard key={idea.id} idea={idea} reserved={isReserved(idea.id)} onClick={() => onSelectIdea(idea.id)} groupNameById={groupNameById} />
+                    {recent.map((idea, index) => (
+                        <motion.div
+                            key={idea.id}
+                            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.25, delay: cardDelay(index), ease: [0.16, 1, 0.3, 1] }}
+                        >
+                            <IdeaCard idea={idea} reserved={isReserved(idea.id)} onClick={() => onSelectIdea(idea.id)} groupNameById={groupNameById} />
+                        </motion.div>
                     ))}
                 </div>
             </section>
@@ -3623,8 +3673,15 @@ function IdeasScreen({
                     <span>{rest.length} {ideaWord(rest.length)}</span>
                 </div>
                 <div className="idea-grid">
-                    {rest.map((idea) => (
-                        <IdeaCard key={idea.id} idea={idea} compact reserved={isReserved(idea.id)} onClick={() => onSelectIdea(idea.id)} groupNameById={groupNameById} />
+                    {rest.map((idea, index) => (
+                        <motion.div
+                            key={idea.id}
+                            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.25, delay: cardDelay(index), ease: [0.16, 1, 0.3, 1] }}
+                        >
+                            <IdeaCard idea={idea} compact reserved={isReserved(idea.id)} onClick={() => onSelectIdea(idea.id)} groupNameById={groupNameById} />
+                        </motion.div>
                     ))}
                 </div>
             </section>

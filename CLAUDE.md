@@ -440,3 +440,30 @@ W `gift-glimpse-next/`:
   banera od razu pod przyciskiem "Zapisz dane". Zasada: bannery
   sukcesu/błędu muszą siedzieć obok akcji, która je wywołała, nie w jednym
   zbiorczym miejscu na końcu długiego ekranu.
+- **Pasek nawigacji (`bottom-nav`) jest `position: fixed` i renderuje się na
+  KAŻDYM ekranie**, ale tylko ekran "Pomysły" (`content has-fab`) miał
+  padding-bottom kompensujący jego wysokość (170px). Realny incydent: reszta
+  ekranów (formularz dodawania, profil, ankiety, ustawienia — dosłownie
+  wszystko poza jednym ekranem) miała tylko 18px paddingu, więc ostatnie
+  ~80-90px treści chowało się pod paskiem, nieosiągalne nawet po
+  przewinięciu do końca. Naprawione: `.content` ma teraz bazowy
+  `padding-bottom: 110px` (nie tylko wariant `has-fab`). Zasada na
+  przyszłość: każdy nowy fixed/sticky element na dole ekranu wymaga
+  odpowiadającego paddingu na WSZYSTKICH ekranach, nie tylko tym, na którym
+  był pierwotnie testowany.
+- **Plakietki z ikoną+tekstem (`.badge`/`.chip`/`.status`/`.priority`) muszą
+  mieć `white-space: nowrap`** — bez tego krótkie dwuwyrazowe etykiety typu
+  "🔒 Tylko ja" łamały się w środku (ikona osobno, "Tylko" osobno, "ja" na
+  trzeciej linii) zamiast zostać razem albo spaść całością do nowej linii.
+  Kontener `.row-between` (używany m.in. w kartach pomysłów) dostał
+  `flex-wrap: wrap`, żeby cała plakietka mogła zjechać niżej zamiast łamać
+  się wewnątrz, gdy nie mieści się obok sąsiada w rzędzie.
+- **Motion (framer-motion, pakiet `motion`)** dodany w AppShell.tsx: delikatne
+  przejście fade+lekki ruch w pionie między ekranami (`AnimatePresence`
+  keyed po `screen`, `mode="wait"` — konieczne, bo dwa ekrany naraz w
+  normalnym flow layoutu, bez position:absolute, nakładałyby się wizualnie),
+  animowane wejście/wyjście custom dialogu potwierdzenia (`confirmRequest`),
+  i stopniowane pojawianie się kart na ekranie Pomysły (`cardDelay`, capped
+  na 8 elementów, żeby długie listy nie miały rozjechanego ogona opóźnień).
+  Wszystko honoruje `useReducedMotion()` — przy `prefers-reduced-motion`
+  zostaje sam fade, znika przesunięcie/skala.
