@@ -2684,12 +2684,20 @@ export function AppShell() {
     if (authView === "recovery") {
         return (
             <div className="app-shell auth-shell">
-                <div className="card body-card auth-card">
+                <form
+                    className="card body-card auth-card"
+                    onSubmit={(event) => {
+                        event.preventDefault();
+                        void onSetNewPassword();
+                    }}
+                >
                     <div className="eyebrow">WhishApp</div>
                     <h1>Ustaw nowe hasło</h1>
                     <div className="field-group">
-                        <label>Nowe hasło</label>
+                        <label htmlFor="recovery-password">Nowe hasło</label>
                         <input
+                            id="recovery-password"
+                            name="new-password"
                             type="password"
                             value={recoveryPassword}
                             autoComplete="new-password"
@@ -2698,8 +2706,8 @@ export function AppShell() {
                         />
                     </div>
                     {authError ? <div className="error-box">{authError}</div> : null}
-                    <button className="primary-button" onClick={() => void onSetNewPassword()}>Zapisz hasło</button>
-                </div>
+                    <button className="primary-button" type="submit">Zapisz hasło</button>
+                </form>
             </div>
         );
     }
@@ -2737,12 +2745,20 @@ export function AppShell() {
         if (authView === "register") {
             return (
                 <div className="app-shell auth-shell">
-                    <div className="card body-card auth-card">
+                    <form
+                        className="card body-card auth-card"
+                        onSubmit={(event) => {
+                            event.preventDefault();
+                            void onRegister();
+                        }}
+                    >
                         <div className="eyebrow">WhishApp</div>
                         <h1>Załóż konto</h1>
                         <div className="field-group">
-                            <label>Imię i nazwisko</label>
+                            <label htmlFor="register-name">Imię i nazwisko</label>
                             <input
+                                id="register-name"
+                                name="name"
                                 value={registerForm.fullName}
                                 autoComplete="name"
                                 onChange={(event) => setRegisterForm((prev) => ({ ...prev, fullName: event.target.value }))}
@@ -2750,8 +2766,10 @@ export function AppShell() {
                             />
                         </div>
                         <div className="field-group">
-                            <label>Email</label>
+                            <label htmlFor="register-email">Email</label>
                             <input
+                                id="register-email"
+                                name="email"
                                 type="email"
                                 value={registerForm.email}
                                 autoComplete="email"
@@ -2760,8 +2778,10 @@ export function AppShell() {
                             />
                         </div>
                         <div className="field-group">
-                            <label>Hasło</label>
+                            <label htmlFor="register-password">Hasło</label>
                             <input
+                                id="register-password"
+                                name="new-password"
                                 type="password"
                                 value={registerForm.password}
                                 autoComplete="new-password"
@@ -2770,9 +2790,10 @@ export function AppShell() {
                             />
                         </div>
                         {authError ? <div className="error-box">{authError}</div> : null}
-                        <button className="primary-button" onClick={() => void onRegister()}>Zarejestruj się</button>
+                        <button className="primary-button" type="submit">Zarejestruj się</button>
                         <button
                             className="text-button"
+                            type="button"
                             onClick={() => {
                                 setAuthError("");
                                 setAuthView("login");
@@ -2780,7 +2801,7 @@ export function AppShell() {
                         >
                             Masz już konto? Zaloguj się
                         </button>
-                    </div>
+                    </form>
                 </div>
             );
         }
@@ -2788,12 +2809,20 @@ export function AppShell() {
         if (authView === "forgot") {
             return (
                 <div className="app-shell auth-shell">
-                    <div className="card body-card auth-card">
+                    <form
+                        className="card body-card auth-card"
+                        onSubmit={(event) => {
+                            event.preventDefault();
+                            void onForgotPassword();
+                        }}
+                    >
                         <div className="eyebrow">WhishApp</div>
                         <h1>Reset hasła</h1>
                         <div className="field-group">
-                            <label>Email</label>
+                            <label htmlFor="forgot-email">Email</label>
                             <input
+                                id="forgot-email"
+                                name="email"
                                 type="email"
                                 value={forgotEmail}
                                 autoComplete="email"
@@ -2802,9 +2831,10 @@ export function AppShell() {
                             />
                         </div>
                         {authError ? <div className="error-box">{authError}</div> : null}
-                        <button className="primary-button" onClick={() => void onForgotPassword()}>Wyślij link do resetu</button>
+                        <button className="primary-button" type="submit">Wyślij link do resetu</button>
                         <button
                             className="text-button back-button"
+                            type="button"
                             onClick={() => {
                                 setAuthError("");
                                 setAuthView("login");
@@ -2813,21 +2843,34 @@ export function AppShell() {
                             <IconArrowLeft className="back-button-icon" />
                             Wróć do logowania
                         </button>
-                    </div>
+                    </form>
                 </div>
             );
         }
 
         return (
             <div className="app-shell auth-shell">
-                <div className="card body-card auth-card">
-                    <button className="text-button" onClick={() => setAuthView("landing")} style={{ alignSelf: "flex-start" }}>
+                <form
+                    className="card body-card auth-card"
+                    onSubmit={(event) => {
+                        event.preventDefault();
+                        void onLogin();
+                    }}
+                >
+                    <button
+                        className="text-button"
+                        type="button"
+                        onClick={() => setAuthView("landing")}
+                        style={{ alignSelf: "flex-start" }}
+                    >
                         ← WhishApp
                     </button>
                     <h1>Zaloguj się</h1>
                     <div className="field-group">
-                        <label>Email</label>
+                        <label htmlFor="login-email">Email</label>
                         <input
+                            id="login-email"
+                            name="email"
                             type="email"
                             value={loginForm.email}
                             autoComplete="email"
@@ -2836,8 +2879,10 @@ export function AppShell() {
                         />
                     </div>
                     <div className="field-group">
-                        <label>Hasło</label>
+                        <label htmlFor="login-password">Hasło</label>
                         <input
+                            id="login-password"
+                            name="current-password"
                             type="password"
                             value={loginForm.password}
                             autoComplete="current-password"
@@ -2847,9 +2892,10 @@ export function AppShell() {
                     </div>
                     {authInfo ? <div className="status positive">{authInfo}</div> : null}
                     {authError ? <div className="error-box">{authError}</div> : null}
-                    <button className="primary-button" onClick={() => void onLogin()}>Zaloguj się</button>
+                    <button className="primary-button" type="submit">Zaloguj się</button>
                     <button
                         className="text-button"
+                        type="button"
                         onClick={() => {
                             setAuthError("");
                             setAuthView("forgot");
@@ -2859,6 +2905,7 @@ export function AppShell() {
                     </button>
                     <button
                         className="text-button"
+                        type="button"
                         onClick={() => {
                             setAuthError("");
                             setAuthView("register");
@@ -2866,7 +2913,7 @@ export function AppShell() {
                     >
                         Nie masz konta? Zarejestruj się
                     </button>
-                </div>
+                </form>
             </div>
         );
     }
