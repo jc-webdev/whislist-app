@@ -2746,7 +2746,7 @@ export function AppShell() {
                                 value={registerForm.fullName}
                                 autoComplete="name"
                                 onChange={(event) => setRegisterForm((prev) => ({ ...prev, fullName: event.target.value }))}
-                                placeholder="Julia Chmielewska"
+                                placeholder="np. Anna Kowalska"
                             />
                         </div>
                         <div className="field-group">
